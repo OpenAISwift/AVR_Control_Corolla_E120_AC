@@ -2,43 +2,12 @@
 #include <Arduino.h>
 #include "pins.h"
 #include "macros.h"
+#include "constant.h"
 #include "cactus_io_DHT22.h"
 #include "Bounce2.h"
 #include "Servo.h"
 #include <math.h>
 /*FIN DE LIBRERIAS*/
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//// 	INICIO DEFINICIONES DE CONFIGURACION DEL SISTEMA																////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#define Val_UmBaj 1	 // Valor umbral de temperatura para apagado del embrague magnetico del comprespr del aire acondicionado
-#define Val_UmAlt 10 // Valor umbral de temperatura encendido del embrague magnetico del comprespr del aire acondicionado
-//////////////////////////////////////////////////////////////////////////
-#define Ini_Trama '<' // Caractere para el inicio de trama del mensaje
-#define End_Trama '>' // Caractere para el fin de trama del mensaje
-//////////////////////////////////////////////////////////////////////////
-#define Ae 1.139754081E-3  // Valor modelo de Steinhart-Hart termistor evaporador
-#define Be 3.299006989E-4  // Valor modelo de Steinhart-Hart termistor evaporador
-#define Ce -4.900267273E-7 // Valor modelo de Steinhart-Hart termistor evaporador
-//////////////////////////////////////////////////////////////////////////
-#define Aa 1.076211817E-3  // Valor modelo de Steinhart-Hart termistor ambiente
-#define Ba 3.394055633e-4  // Valor modelo de Steinhart-Hart termistor ambiente
-#define Ca -5.362332983e-7 // Valor modelo de Steinhart-Hart termistor ambiente
-//////////////////////////////////////////////////////////////////////////
-#define Raux 9800.0 // Valor resistencia para el divisor de voltaje
-#define Vcc 4.83	// Alimentacion de Sensores de Temperatura (4,8)
-#define K 1.5		// Constante de factor de disipacion en mW/C
-//////////////////////////////////////////////////////////////////////////
-#define Int_Prom 1000 // Intervalo de tiempo lectura sensores analogos
-#define Int_LecT 4000 // Intervalo de tiempo lectura sensores digitales
-#define Int_MenT 1000 // Intervalo de tiempo envio mensaejes sensores de temperatura
-#define Int_Dese 1000 // Intervalo de tiempo espera activavion de desempañador automatico
-#define Int_ActE 4000 // Intervalo de tiempo espera activacion de aire acondicionado
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//// 	FIN DEFINICIONES DE CONFIGURACION DEL SISTEMA																	////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 DHT22 dht(Dht_Room);
 Bounce posicionLuz = Bounce();
@@ -46,8 +15,7 @@ Servo servoAirMix;
 Servo servoVentMode;
 
 /* INICO DEFINICIONES DE VARIABLES */
-constexpr byte
-	numeroDeCaracteres = 32;
+
 float
 	ADCvRef = 0;
 int
@@ -61,10 +29,10 @@ int
 	enteroDesdePc = 0;	   // Valor entero comando PC
 
 char
-	receivedChars[numeroDeCaracteres],	// Vector Caracteres recivios
-	tempChars[numeroDeCaracteres],		// Vector tenporal para almacenar caracteres
-	mensajeDesdePc[numeroDeCaracteres], // Vector Mensaje PC
-	buffer[60];
+	receivedChars[Len_BufferInt],	// Vector Caracteres recivios
+	tempChars[Len_BufferInt],		// Vector tenporal para almacenar caracteres
+	mensajeDesdePc[Len_BufferInt], // Vector Mensaje PC
+	buffer[Len_BufferOut];
 
 uint8_t
 	Est_Auto1 = 0, // Estado boleanos para el control automaico
@@ -380,9 +348,9 @@ void lecturaComandosPc()
 			{
 				receivedChars[ndx] = rc;
 				ndx++;
-				if (ndx >= numeroDeCaracteres)
+				if (ndx >= Len_BufferInt)
 				{
-					ndx = numeroDeCaracteres - 1;
+					ndx = Len_BufferInt - 1;
 				}
 			}
 			else
