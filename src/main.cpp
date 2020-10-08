@@ -1,5 +1,6 @@
 /*INICIO DE LIBRERIAS*/
 #include <Arduino.h>
+#include "pins.h"
 #include "cactus_io_DHT22.h"
 #include "Bounce2.h"
 #include "Servo.h"
@@ -10,7 +11,7 @@
 //// 	INICIO DEFINICIONES DE CONFIGURACION DEL SISTEMA																////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define Val_UmBaj 1  // Valor umbral de temperatura para apagado del embrague magnetico del comprespr del aire acondicionado
+#define Val_UmBaj 1	 // Valor umbral de temperatura para apagado del embrague magnetico del comprespr del aire acondicionado
 #define Val_UmAlt 10 // Valor umbral de temperatura encendido del embrague magnetico del comprespr del aire acondicionado
 //////////////////////////////////////////////////////////////////////////
 #define Ini_Trama '<' // Caractere para el inicio de trama del mensaje
@@ -38,36 +39,10 @@
 //// 	FIN DEFINICIONES DE CONFIGURACION DEL SISTEMA																	////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/* INICIO DEFINICION DE PINES */
-#define Sen_Eva A0			  // Thermistor Evaporador
-#define sensorAmbiente A1	 // Thermistor Ambiente
-#define sensorluzAmbiental A2 // Fotodiodo
-#define sensorIterior 6		  // Sensor Temperatura Interior
-#define coolantTemperature 29 // Opcional (Averiguar tipo de Señal)
-
-DHT22 dht(sensorIterior);
-
-#define pinPosicionLuz 41 // Interruptor Posicion de Iluminacion
+DHT22 dht(Dht_Room);
 Bounce posicionLuz = Bounce();
-#define dualAC 43   // Interruptor Dual (preostato)
-#define singleAC 45 // Interruptor Simple (preostato)
-
-#define pinAirMix 9 // Pin Servo mescla aire frio y caliente
 Servo servoAirMix;
-#define pinVentMode 10 // Pin Servo posairventmode
 Servo servoVentMode;
-#define positionAirFresh 25		 // Aire Fresco
-#define positionRecirculation 26 // Recirculacion
-
-#define soplador 2		  // Ventilador Aire_Acondicionado
-#define heaterRelay 22	// Heater relay
-#define cluchRelay 23	 // Clutch relay a/c
-#define defrosterRelay 24 // Desempañador Trasero
-#define activatorAC 27	// A/c Activador
-#define relayFan1 28	  // Relay Fan No 1
-#define warningLight 30   // Señal de peligro 30
-#define ACT 47			  // A/C Cortar (ECU)
-/* FIN DEFINICION DE PINES */
 
 /* INICO DEFINICIONES DE VARIABLES */
 constexpr byte
@@ -75,17 +50,17 @@ constexpr byte
 float
 	ADCvRef = 0;
 int
-	tempEvaporador = 0,	// Variable temperatura Evaporador
-	tempAmbiente = 0,	  // Variable temperatura Ambiente
-	tempInterior = 0,	  // Variable temperatura Interior
+	tempEvaporador = 0,	   // Variable temperatura Evaporador
+	tempAmbiente = 0,	   // Variable temperatura Ambiente
+	tempInterior = 0,	   // Variable temperatura Interior
 	tempSensaInterior = 0, // Variable  Sensacion temperatura Interior
 	humInterior = 0,	   // Variable humedad Interior
 	puntoRocio = 0,		   // Valor de Punto de rocio
 	valorLuzAmbiental = 0, // Valor Fotodiodo
-	enteroDesdePc = 0;	 // Valor entero comando PC
+	enteroDesdePc = 0;	   // Valor entero comando PC
 
 char
-	receivedChars[numeroDeCaracteres],  // Vector Caracteres recivios
+	receivedChars[numeroDeCaracteres],	// Vector Caracteres recivios
 	tempChars[numeroDeCaracteres],		// Vector tenporal para almacenar caracteres
 	mensajeDesdePc[numeroDeCaracteres], // Vector Mensaje PC
 	buffer[60];
@@ -101,11 +76,11 @@ uint8_t
 	valorAirMix = 0,
 	Est_AcAac = 255, // Estado para el control de encendido del compresor del aire acondicionado
 	Est_ADese = 255, // Estado para el desempañamiento automatico parabrisa delantera
-	Est_RFan1 = 0,   // Estado control del relay de la refrigeracion del motor
-	Est_MAuto = 0,   // Estado para el envio de mensajes de sensores de temperatura
+	Est_RFan1 = 0,	 // Estado control del relay de la refrigeracion del motor
+	Est_MAuto = 0,	 // Estado para el envio de mensajes de sensores de temperatura
 	estadoCuartos = 0,
 	flagCuartos = 0,
-	estadoHeaterRelay = 0,
+	estadoRel_Heater = 0,
 	estadoSingleAc = 0,
 	mensajeNuevo = 0;
 
@@ -182,14 +157,14 @@ void lecturaSensores()
 		ADC_TemE = 0, // Variable para acumular las lecturas del sensor de temperatura Evaporador
 		ADC_TemA = 0; // Variable para acumular las lecturas del sensor de temperatura Ambiente
 
-	ADC_LuzA += analogRead(sensorluzAmbiental); // Acumula las lecturas del sensor de luz ambiente
-	ADC_TemA += analogRead(sensorAmbiente);		// Acumula las lecturas del sensor de temperatura Ambiente
-	ADC_TemE += analogRead(Sen_Eva);			// Acumula las lecturas del sensor de temperatura del evaporador
-	ADC_Acum++;									// Acumulador para el numero de lecturas de los sensores
+	ADC_LuzA += analogRead(Fot_Solar);		// Acumula las lecturas del sensor de luz ambiente
+	ADC_TemA += analogRead(Ter_Ambient);	// Acumula las lecturas del sensor de temperatura Ambiente
+	ADC_TemE += analogRead(Ter_Evaporador); // Acumula las lecturas del sensor de temperatura del evaporador
+	ADC_Acum++;								// Acumulador para el numero de lecturas de los sensores
 
-	estadoSingleAc = digitalRead(singleAC); //Asignacion de estado preostato interruptor simple
-	posicionLuz.update();					// Actualiza el estados de las luces
-	estadoCuartos = posicionLuz.read();		//Asignacion de estado luces
+	estadoSingleAc = digitalRead(Swi_SingleAC); //Asignacion de estado preostato interruptor simple
+	posicionLuz.update();						// Actualiza el estados de las luces
+	estadoCuartos = posicionLuz.read();			//Asignacion de estado luces
 
 	if (Tie_Actu - Tie_ATeA >= Int_Prom)
 	{
@@ -197,7 +172,7 @@ void lecturaSensores()
 			ADC_ProA = ADC_TemA / ADC_Acum,					// Variable temporal para almacenar el promedio de las lecturas de sensores
 			ADC_ProE = ADC_TemE / ADC_Acum,					// Variable temporal para almacenar el promedio de las lecturas de sensores
 			ADC_ProL = ADC_LuzA / ADC_Acum;					// Variable temporal para almacenar el promedio de las lecturas de sensores
-		tempAmbiente = temperatura(ADC_ProA, Aa, Ba, Ca);   // Convercion del voltage a temperatura ambiente
+		tempAmbiente = temperatura(ADC_ProA, Aa, Ba, Ca);	// Convercion del voltage a temperatura ambiente
 		tempEvaporador = temperatura(ADC_ProE, Ae, Be, Ce); // Convercion del voltage a temperatura del evaporador
 		valorLuzAmbiental = map(ADC_ProL, 0, 1023, 0, 100);
 		ADC_Acum = 0;		 // Reinicia las variables para las siguientes lecturas
@@ -282,26 +257,26 @@ void controlManual()
 		}
 		break;
 
-	case 'b': // Control del soplador del sistema del aire acondicionado
+	case 'b': // Control del Pwm_Blower del sistema del aire acondicionado
 		if (enteroDesdePc >= 1)
 		{
-			if (!estadoHeaterRelay)
+			if (!estadoRel_Heater)
 			{
-				estadoHeaterRelay = 1;
-				digitalWrite(heaterRelay, HIGH);
+				estadoRel_Heater = 1;
+				digitalWrite(Rel_Heater, HIGH);
 			}
 		}
 		else
 		{
-			if (estadoHeaterRelay)
+			if (estadoRel_Heater)
 			{
-				estadoHeaterRelay = 0;
+				estadoRel_Heater = 0;
 				Est_AcAac = 0; // Desactiva el compresor del aire acondicionado
-				digitalWrite(heaterRelay, LOW);
+				digitalWrite(Rel_Heater, LOW);
 			}
 		}
 		valorSoplador = map(enteroDesdePc, 0, 6, 0, 255);
-		analogWrite(soplador, valorSoplador);
+		analogWrite(Pwm_Blower, valorSoplador);
 		break;
 
 	case 'c': // Control del sistema de refigeracion del motor
@@ -320,12 +295,12 @@ void controlManual()
 	case 'd': // Control del desempañamiento de la parabrisa trasera
 		if (enteroDesdePc == 1)
 		{
-			digitalWrite(defrosterRelay, HIGH);
+			digitalWrite(Rel_Defroster, HIGH);
 			break;
 		}
 		else
 		{
-			digitalWrite(defrosterRelay, LOW);
+			digitalWrite(Rel_Defroster, LOW);
 			break;
 		}
 		break;
@@ -355,14 +330,14 @@ void controlManual()
 	case 'f': // Control de recirculacion del sistema del aire acondicionado
 		if (enteroDesdePc == 1)
 		{
-			digitalWrite(positionRecirculation, HIGH);
-			digitalWrite(positionAirFresh, LOW);
+			digitalWrite(Dig_Recirculation, HIGH);
+			digitalWrite(Dig_AirFresh, LOW);
 			break;
 		}
 		else
 		{
-			digitalWrite(positionRecirculation, LOW);
-			digitalWrite(positionAirFresh, HIGH);
+			digitalWrite(Dig_Recirculation, LOW);
+			digitalWrite(Dig_AirFresh, HIGH);
 			break;
 		}
 		break;
@@ -395,12 +370,12 @@ void controlManual()
 	case 'w': // Encender luces de emergencia
 		if (enteroDesdePc == 1)
 		{
-			digitalWrite(warningLight, HIGH);
+			digitalWrite(Rel_WarningLight, HIGH);
 			break;
 		}
 		else
 		{
-			digitalWrite(warningLight, LOW);
+			digitalWrite(Rel_WarningLight, LOW);
 			break;
 		}
 		break;
@@ -448,9 +423,9 @@ void lecturaComandosPc()
 		/////////////////////////////////////////////////////////////////////////////////////////////////
 		char *strtokIndx;					 // Es utilizado por strtok() como un indice
 		strtokIndx = strtok(tempChars, ","); // Optiene la primera parte de la cadena
-		strcpy(mensajeDesdePc, strtokIndx);  // Copia en mensajeDesdePc
+		strcpy(mensajeDesdePc, strtokIndx);	 // Copia en mensajeDesdePc
 		strtokIndx = strtok(NULL, ",");		 // Contionua donde quedo la llamada anterior
-		enteroDesdePc = atoi(strtokIndx);	// Convierte a un numero entero
+		enteroDesdePc = atoi(strtokIndx);	 // Convierte a un numero entero
 		/////////////////////////////////////////////////////////////////////////////////////////////////
 		controlManual();
 		mensajeNuevo = false;
@@ -476,25 +451,25 @@ void Con_EstComp() // Funcion para el control del compresor del aire acondiciona
 	{
 	case 0: // Desactivacion del sistema del compresor del aire acondicionado
 
-		Est_AcAac = 255;				// Cambia al siguiente estado
-		digitalWrite(activatorAC, LOW); // Desactiva la salida para la ECU aumente el ralentí
-		digitalWrite(cluchRelay, LOW);  // Desactiva el embrague magnetico del compresor del aire acondicionado
-		Est_RFan1 = 0;					// Desactiva el relay del ventilador de refigeracion del radiador
+		Est_AcAac = 255;			  // Cambia al siguiente estado
+		digitalWrite(Dig_Ac1, LOW);	  // Desactiva la salida para la ECU aumente el ralentí
+		digitalWrite(Rel_Cluch, LOW); // Desactiva el embrague magnetico del compresor del aire acondicionado
+		Est_RFan1 = 0;				  // Desactiva el relay del ventilador de refigeracion del radiador
 		break;
 
 	case 1: // Inicia la activacion del compresor del sistema del aire acondicionado
 
-		Est_AcAac = 2;					 // Cambia al siguiente estado
-		digitalWrite(activatorAC, HIGH); // Activa la salida para la ECU aumente el ralentí
-		Tie_AaAC = Tie_Actu;			 // Actualiza el temporizador
-		Est_RFan1 = 1;					 // Activa el relay del ventilador de refigeracion del radiador
+		Est_AcAac = 2;				 // Cambia al siguiente estado
+		digitalWrite(Dig_Ac1, HIGH); // Activa la salida para la ECU aumente el ralentí
+		Tie_AaAC = Tie_Actu;		 // Actualiza el temporizador
+		Est_RFan1 = 1;				 // Activa el relay del ventilador de refigeracion del radiador
 		break;
 
 	case 2: // Espera de tiempo asignado a Tie_AaAC para la espera de encendido y comprobacion del compresor del aire acondicionado
 		if (Tie_Actu - Tie_AaAC >= Int_ActE)
 		{
 			Est_Comp |= BOOL1; // Reinicia el estado de encendido del del compresor por temperatura
-			Est_AcAac = 3;	 // Cambia al siguiente estado
+			Est_AcAac = 3;	   // Cambia al siguiente estado
 			break;
 		}
 		else
@@ -504,18 +479,18 @@ void Con_EstComp() // Funcion para el control del compresor del aire acondiciona
 		break;
 
 	case 3:
-		if (!digitalRead(dualAC)) // Lectura del interruptor doble del sistema del aire acondicionado (0 = Cerrado 1 = Abierto) Abierdo no debe encender el aire acondicionado
+		if (!digitalRead(Swi_DualAC)) // Lectura del interruptor doble del sistema del aire acondicionado (0 = Cerrado 1 = Abierto) Abierdo no debe encender el aire acondicionado
 		{
-			if (!digitalRead(singleAC)) // Lectura del interruptor simple del sistema del aire acondicionado (1 = Cerrado 0 = Abierto) Abierdo no debe encender el aire acondicionado
+			if (!digitalRead(Swi_SingleAC)) // Lectura del interruptor simple del sistema del aire acondicionado (1 = Cerrado 0 = Abierto) Abierdo no debe encender el aire acondicionado
 			{
-				if (digitalRead(ACT))
+				if (digitalRead(Dig_Act))
 				{ // Lectura de la señal de ECU para desactivacion del compresor del aire acondicionado  (1 = Funcionamineto normal 0 = Apagar compresor)
 					if (Est_Comp & BOOL1)
 					{ // Control del encendido del compresor del aire acondicionado por umbral de temperatura del evaporador
 						if (tempEvaporador >= Val_UmAlt)
-						{									// Control de encendido cuando la temperatura umbral es superior o igual a la definida
-							Est_Comp &= ~BOOL1;				// Cambio de estado para la activacion de temperatura por debajo o igual al valor umbral
-							digitalWrite(cluchRelay, HIGH); // Activa el embrague magnetico del compresor del aire acondicionado
+						{								   // Control de encendido cuando la temperatura umbral es superior o igual a la definida
+							Est_Comp &= ~BOOL1;			   // Cambio de estado para la activacion de temperatura por debajo o igual al valor umbral
+							digitalWrite(Rel_Cluch, HIGH); // Activa el embrague magnetico del compresor del aire acondicionado
 							break;
 						}
 						break;
@@ -524,8 +499,8 @@ void Con_EstComp() // Funcion para el control del compresor del aire acondiciona
 					{
 						if (tempEvaporador <= Val_UmBaj) // Control de apagado cuando la temperatura umbral es inferior o igual a la definida
 						{
-							Est_Comp |= BOOL1;			   // Cambio de estado para la activacion de temperatura superior o igual al valor umbral
-							digitalWrite(cluchRelay, LOW); // Desactiva el embrague magnetico del compresor del aire acondicionado
+							Est_Comp |= BOOL1;			  // Cambio de estado para la activacion de temperatura superior o igual al valor umbral
+							digitalWrite(Rel_Cluch, LOW); // Desactiva el embrague magnetico del compresor del aire acondicionado
 							break;
 						}
 						break;
@@ -555,9 +530,9 @@ void Con_EstComp() // Funcion para el control del compresor del aire acondiciona
 
 	case 4: // Cuando la ECU ordena apagar el compresor del aire acondicionado
 
-		digitalWrite(cluchRelay, LOW); // Desactiva el embrague magnetico del compresor del aire acondicionado
-		Tie_AaAC = Tie_Actu;		   // Actualiza el temporizador
-		Est_AcAac = 2;				   // Cambia al siguiente estado
+		digitalWrite(Rel_Cluch, LOW); // Desactiva el embrague magnetico del compresor del aire acondicionado
+		Tie_AaAC = Tie_Actu;		  // Actualiza el temporizador
+		Est_AcAac = 2;				  // Cambia al siguiente estado
 		break;
 
 	default: // Caso por defecto no haga nada
@@ -576,25 +551,25 @@ void Con_AutoCli() // Funcion para el control automatico del climatizador
 	{
 	case 0: // Desactiva el desempañamiento automatico
 
-		Est_AcAac = 0;							   // Desactiva el compresor del aire acondicionado
-		valorSoplador = map(0, 0, 6, 0, 255);	  // Asigna la velocidad del soplador
-		digitalWrite(heaterRelay, LOW);			   // Desactiva el relay del conjunto del aire acondicionado
-		analogWrite(soplador, valorSoplador);	  // Asigna el pwm del soplador
-		digitalWrite(positionRecirculation, HIGH); // Activa la recirculacion
-		digitalWrite(positionAirFresh, LOW);	   // Desactiva la entrada de aire desde afuera
-		Est_ADese = 255;						   // Cambia al siguiente estado
+		Est_AcAac = 0;							// Desactiva el compresor del aire acondicionado
+		valorSoplador = map(0, 0, 6, 0, 255);	// Asigna la velocidad del Pwm_Blower
+		digitalWrite(Rel_Heater, LOW);			// Desactiva el relay del conjunto del aire acondicionado
+		analogWrite(Pwm_Blower, valorSoplador); // Asigna el pwm del Pwm_Blower
+		digitalWrite(Dig_Recirculation, HIGH);	// Activa la recirculacion
+		digitalWrite(Dig_AirFresh, LOW);		// Desactiva la entrada de aire desde afuera
+		Est_ADese = 255;						// Cambia al siguiente estado
 		break;
 
 	case 1: // Caso 1 para el inicio de desempañamiento manual
 
-		Est_AcAac = 1;							  // Activa el compresor del aire acondicionado
-		valorSoplador = map(3, 0, 6, 0, 255);	 // Asigna la velocidad del soplador
-		digitalWrite(heaterRelay, HIGH);		  // Activa el relay del conjunto del aire acondicionado
-		analogWrite(soplador, valorSoplador);	 // Asigna el pwm del soplador
-		servoVentMode.write(0);					  // Posiciona la regilla para la parabrisa delantera
-		digitalWrite(positionRecirculation, LOW); // Desactiva la recirculacion
-		digitalWrite(positionAirFresh, HIGH);	 // Activa la entrada de aire desde afuera
-		Est_ADese = 255;						  // Cambia al siguiente estado
+		Est_AcAac = 1;							// Activa el compresor del aire acondicionado
+		valorSoplador = map(3, 0, 6, 0, 255);	// Asigna la velocidad del Pwm_Blower
+		digitalWrite(Rel_Heater, HIGH);			// Activa el relay del conjunto del aire acondicionado
+		analogWrite(Pwm_Blower, valorSoplador); // Asigna el pwm del Pwm_Blower
+		servoVentMode.write(0);					// Posiciona la regilla para la parabrisa delantera
+		digitalWrite(Dig_Recirculation, LOW);	// Desactiva la recirculacion
+		digitalWrite(Dig_AirFresh, HIGH);		// Activa la entrada de aire desde afuera
+		Est_ADese = 255;						// Cambia al siguiente estado
 		break;
 
 	case 2: // Inicia el desempañador automatico
@@ -612,11 +587,11 @@ void Con_AutoCli() // Funcion para el control automatico del climatizador
 			{
 				Est_CAuto &= ~BOOL1;			 // Cambia el control del climatizador para el apagado del climatizador
 				Est_AcAac = 1;					 // Activa el compresor del aire acondicionado
-				digitalWrite(heaterRelay, HIGH); // Activa el conjunto del climatizador
-				analogWrite(soplador, valorSoplador);
-				valorSoplador = map(3, 0, 6, 0, 255);	 // Asigna la velocidad de 3 al ventilador
-				digitalWrite(positionRecirculation, LOW); // Desactiva la recirculacion
-				digitalWrite(positionAirFresh, HIGH);	 // Activa la entrada de aire desde afuera
+				digitalWrite(Rel_Heater, HIGH); // Activa el conjunto del climatizador
+				analogWrite(Pwm_Blower, valorSoplador);
+				valorSoplador = map(3, 0, 6, 0, 255);	  // Asigna la velocidad de 3 al ventilador
+				digitalWrite(Dig_Recirculation, LOW); // Desactiva la recirculacion
+				digitalWrite(Dig_AirFresh, HIGH);	  // Activa la entrada de aire desde afuera
 				servoVentMode.write(0);					  // Dirige todo el aire al parabrisa
 				//valorAirMix = map(3, 0, 6, 15, 135);	// Asigna entre la mescla de aire caliente y frio en 2
 				//servoAirMix.write(valorAirMix);
@@ -631,8 +606,8 @@ void Con_AutoCli() // Funcion para el control automatico del climatizador
 				Est_CAuto |= BOOL1; // Cambia el control del climatizador para el encendido del climatizador
 				Est_AcAac = 0;		// Desactiva el compresor del aire acondicionado
 				valorSoplador = 0;
-				analogWrite(soplador, valorSoplador);
-				digitalWrite(heaterRelay, LOW);
+				analogWrite(Pwm_Blower, valorSoplador);
+				digitalWrite(Rel_Heater, LOW);
 				//valorAirMix = map(0, 0, 6, 15, 135);	// Asigna entre la mescla de aire caliente y frio en 0
 				//servoAirMix.write(valorAirMix);
 				break;
@@ -672,26 +647,26 @@ void setup()
 	Serial.begin(115200UL);
 	dht.begin();
 
-	pinMode(soplador, OUTPUT);
-	pinMode(heaterRelay, OUTPUT);
-	pinMode(defrosterRelay, OUTPUT);
-	pinMode(positionRecirculation, OUTPUT);
-	pinMode(positionAirFresh, OUTPUT);
-	pinMode(cluchRelay, OUTPUT);
-	pinMode(relayFan1, OUTPUT);
-	pinMode(activatorAC, OUTPUT);
-	pinMode(warningLight, OUTPUT);
+	pinMode(Pwm_Blower, OUTPUT);
+	pinMode(Rel_Heater, OUTPUT);
+	pinMode(Rel_Defroster, OUTPUT);
+	pinMode(Dig_Recirculation, OUTPUT);
+	pinMode(Dig_AirFresh, OUTPUT);
+	pinMode(Rel_Cluch, OUTPUT);
+	pinMode(Rel_Fan1, OUTPUT);
+	pinMode(Dig_Ac1, OUTPUT);
+	pinMode(Rel_WarningLight, OUTPUT);
 
-	pinMode(coolantTemperature, INPUT);
-	pinMode(pinPosicionLuz, INPUT);
-	pinMode(singleAC, INPUT);
-	pinMode(dualAC, INPUT);
-	pinMode(ACT, INPUT);
+	// pinMode(Swi_Ill , INPUT);
+	pinMode(Swi_Ill, INPUT);
+	pinMode(Swi_SingleAC, INPUT);
+	pinMode(Swi_DualAC, INPUT);
+	pinMode(Dig_Act, INPUT);
 	ADCvRef = vRefADC() / 1000.0;
 
-	servoAirMix.attach(pinAirMix);
-	servoVentMode.attach(pinVentMode);
-	posicionLuz.attach(pinPosicionLuz);
+	servoAirMix.attach(Ser_AirMix);
+	servoVentMode.attach(Ser_VentMode);
+	posicionLuz.attach(Swi_Ill);
 	posicionLuz.interval(5);
 	valorAirMix = map(0, 0, 6, 15, 135);
 	servoAirMix.write(valorAirMix);
@@ -700,7 +675,7 @@ void setup()
 void loop()
 {
 	Tie_Actu = millis(); // Actualiza el tiempo para los temporizadores
-	digitalWrite(relayFan1, (estadoSingleAc || Est_RFan1));
+	digitalWrite(Rel_Fan1, (estadoSingleAc || Est_RFan1));
 	lecturaSensores();
 	lecturaComandosPc();
 	controlAutomatico();
