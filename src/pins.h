@@ -1,5 +1,6 @@
 #pragma once
 #ifndef _PINS_H
+#define _PINS_H
 
 /*PUERTOS DE ENTRADA ANALOGICOS SENSORES DE TEMPERATURA*/
 
