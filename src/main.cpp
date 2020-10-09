@@ -3,6 +3,7 @@
 #include "pins.h"
 #include "macros.h"
 #include "constant.h"
+#include "utility.h"
 #include "cactus_io_DHT22.h"
 #include "Bounce2.h"
 #include "Servo.h"
@@ -57,34 +58,6 @@ unsigned long
 	Tie_Actu = 0; // Variable que almacena el tiempo desde que se inicio el sistema
 /* FIN DEFINICIONES DE VARIABLES */
 
-
-
-float vRefADC()
-{
-	long result;
-	ADMUX = (1 << REFS0) | (1 << MUX4) | (1 << MUX3) | (1 << MUX2) | (1 << MUX1);
-	delay(2);
-	ADCSRA |= (1 << ADSC);
-	while (bit_is_set(ADCSRA, ADSC))
-		;
-	result = ADCL;
-	result |= ADCH << 8;
-	result = 1125300L / result;
-	return result;
-}
-
-double lecturaPuntoRocio(double temperaturaC, double humedadR)
-{
-	double RATIO = 373.15 / (273.15 + temperaturaC);
-	double RHS = -7.90298 * (RATIO - 1);
-	RHS += 5.02808 * log10(RATIO);
-	RHS += -1.3816e-7 * (pow(10, (11.344 * (1 - 1 / RATIO))) - 1);
-	RHS += 8.1328e-3 * (pow(10, (-3.49149 * (RATIO - 1))) - 1);
-	RHS += log10(1013.246);
-	double VP = pow(10, RHS - 3) * humedadR;
-	double T = log(VP / 0.61078);
-	return (241.88 * T) / (17.558 - T);
-}
 float temperatura(int RawADC, float A, float B, float C)
 {
 	float Vo = ((float)RawADC + 0.5) / 1024.0 * ADCvRef;
@@ -139,7 +112,7 @@ void lecturaSensores()
 		tempInterior = dht.temperature_C;
 		humInterior = dht.humidity;
 		tempSensaInterior = dht.computeHeatIndex_C();
-		puntoRocio = lecturaPuntoRocio(tempInterior, humInterior);
+		puntoRocio = Fun_DewPoint(tempInterior, humInterior);
 		Tie_ATeD = Tie_Actu; // Actualiza el tiempo para la siguiente lectura
 		Est_MAuto = 2;		 // Estado para el control de mensajes
 	}
@@ -612,7 +585,7 @@ void setup()
 	pinMode(Swi_SingleAC, INPUT);
 	pinMode(Swi_DualAC, INPUT);
 	pinMode(Dig_Act, INPUT);
-	ADCvRef = vRefADC() / 1000.0;
+	ADCvRef = Fun_VRefADC() / 1000.0;
 
 	servoAirMix.attach(Ser_AirMix);
 	servoVentMode.attach(Ser_VentMode);
