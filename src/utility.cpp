@@ -4,7 +4,8 @@
 
 float Val_VRefADC; // Voltaje de referencia ADC
 
-void Upd_FunParameter(){
+void Upd_FunParameter()
+{
 	Val_VRefADC = Fun_VRefADC() / 1000.0;
 }
 

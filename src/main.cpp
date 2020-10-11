@@ -17,11 +17,7 @@ DHT dht(Dht_Room, DHT22);
 Bounce posicionLuz = Bounce();
 /*DECLARACION DE CLASES*/
 
-
-
-
 /* INICO DEFINICIONES DE VARIABLES */
-
 
 int Temp_Evaporador = 0; // Variable temperatura Evaporador
 int Temp_Ambiente = 0;	 // Variable temperatura Ambiente
@@ -61,7 +57,9 @@ unsigned long
 	Tie_Actu = 0; // Variable que almacena el tiempo desde que se inicio el sistema
 /* FIN DEFINICIONES DE VARIABLES */
 
-
+/*FUNCIONES PROTOTIPO*/
+void lecturaComandosPc();
+/*FUNCIONES PROTOTIPO*/
 
 void lecturaSensores()
 {
@@ -86,10 +84,10 @@ void lecturaSensores()
 	if (Tie_Actu - Tie_ATeA >= Int_Prom)
 	{
 		unsigned int
-			ADC_ProA = ADC_TemA / ADC_Acum,					 // Variable temporal para almacenar el promedio de las lecturas de sensores
-			ADC_ProE = ADC_TemE / ADC_Acum,					 // Variable temporal para almacenar el promedio de las lecturas de sensores
-			ADC_ProL = ADC_LuzA / ADC_Acum;					 // Variable temporal para almacenar el promedio de las lecturas de sensores
-		Temp_Ambiente = Fun_ConTemperature(ADC_ProA, Aa, Ba, Ca);	 // Convercion del voltage a temperatura ambiente
+			ADC_ProA = ADC_TemA / ADC_Acum,							// Variable temporal para almacenar el promedio de las lecturas de sensores
+			ADC_ProE = ADC_TemE / ADC_Acum,							// Variable temporal para almacenar el promedio de las lecturas de sensores
+			ADC_ProL = ADC_LuzA / ADC_Acum;							// Variable temporal para almacenar el promedio de las lecturas de sensores
+		Temp_Ambiente = Fun_ConTemperature(ADC_ProA, Aa, Ba, Ca);	// Convercion del voltage a temperatura ambiente
 		Temp_Evaporador = Fun_ConTemperature(ADC_ProE, Ae, Be, Ce); // Convercion del voltage a temperatura del evaporador
 		Illu_Ambiental = map(ADC_ProL, 0, 1023, 0, 100);
 		ADC_Acum = 0;		 // Reinicia las variables para las siguientes lecturas
@@ -298,53 +296,6 @@ void controlManual()
 
 	default: // Caso por defecto no haga nada
 		break;
-	}
-}
-void lecturaComandosPc()
-{
-	static boolean recvInProgress = false;
-	static byte ndx = 0;
-	char rc;
-	if (Serial.available() > 0 && !mensajeNuevo)
-	{
-		rc = Serial.read();
-		if (recvInProgress)
-		{
-			if (rc != End_Trama)
-			{
-				receivedChars[ndx] = rc;
-				ndx++;
-				if (ndx >= Len_BufferInt)
-				{
-					ndx = Len_BufferInt - 1;
-				}
-			}
-			else
-			{
-				receivedChars[ndx] = '\0'; // Termina la cadena
-				recvInProgress = false;
-				ndx = 0;
-				mensajeNuevo = true;
-			}
-		}
-		else if (rc == Ini_Trama)
-		{
-			recvInProgress = true;
-		}
-	}
-	if (mensajeNuevo)
-	{
-		strcpy(tempChars, receivedChars);
-		/* Divide los datos en sus partes*/
-		/////////////////////////////////////////////////////////////////////////////////////////////////
-		char *strtokIndx;					 // Es utilizado por strtok() como un indice
-		strtokIndx = strtok(tempChars, ","); // Optiene la primera parte de la cadena
-		strcpy(mensajeDesdePc, strtokIndx);	 // Copia en mensajeDesdePc
-		strtokIndx = strtok(NULL, ",");		 // Contionua donde quedo la llamada anterior
-		enteroDesdePc = atoi(strtokIndx);	 // Convierte a un numero entero
-		/////////////////////////////////////////////////////////////////////////////////////////////////
-		controlManual();
-		mensajeNuevo = false;
 	}
 }
 void Con_EstComp() // Funcion para el control del compresor del aire acondicionado
@@ -560,7 +511,8 @@ void Est_ActMens()
 
 void setup()
 {
-	Serial.begin(115200UL);
+	Serial.begin(Spe_Serial);
+	
 	dht.begin();
 
 	pinMode(Pwm_Blower, OUTPUT);
@@ -577,7 +529,6 @@ void setup()
 	pinMode(Swi_SingleAC, INPUT);
 	pinMode(Swi_DualAC, INPUT);
 	pinMode(Dig_Act, INPUT);
-	
 
 	servoAirMix.attach(Ser_AirMix);
 	servoVentMode.attach(Ser_VentMode);
@@ -599,4 +550,53 @@ void loop()
 	Est_ActMens();
 	Con_EstComp();
 	Con_AutoCli();
+}
+
+
+void lecturaComandosPc()
+{
+	static boolean recvInProgress = false;
+	static byte ndx = 0;
+	char rc;
+	if (Serial.available() > 0 && !mensajeNuevo)
+	{
+		rc = Serial.read();
+		if (recvInProgress)
+		{
+			if (rc != End_Trama)
+			{
+				receivedChars[ndx] = rc;
+				ndx++;
+				if (ndx >= Len_BufferInt)
+				{
+					ndx = Len_BufferInt - 1;
+				}
+			}
+			else
+			{
+				receivedChars[ndx] = '\0'; // Termina la cadena
+				recvInProgress = false;
+				ndx = 0;
+				mensajeNuevo = true;
+			}
+		}
+		else if (rc == Ini_Trama)
+		{
+			recvInProgress = true;
+		}
+	}
+	if (mensajeNuevo)
+	{
+		strcpy(tempChars, receivedChars);
+		/* Divide los datos en sus partes*/
+		/////////////////////////////////////////////////////////////////////////////////////////////////
+		char *strtokIndx;					 // Es utilizado por strtok() como un indice
+		strtokIndx = strtok(tempChars, ","); // Optiene la primera parte de la cadena
+		strcpy(mensajeDesdePc, strtokIndx);	 // Copia en mensajeDesdePc
+		strtokIndx = strtok(NULL, ",");		 // Contionua donde quedo la llamada anterior
+		enteroDesdePc = atoi(strtokIndx);	 // Convierte a un numero entero
+		/////////////////////////////////////////////////////////////////////////////////////////////////
+		controlManual();
+		mensajeNuevo = false;
+	}
 }
