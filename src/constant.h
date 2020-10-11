@@ -6,7 +6,7 @@
 #define Ini_Trama '<'   // Caractere para el inicio de trama del mensaje
 #define End_Trama '>'   // Caractere para el fin de trama del mensaje
 #define Len_BufferInt 30 // Tamaño del buffer de entrada
-#define Len_BufferOut 30 // Tamaño del buffer de salida
+#define Len_BufferOut 40 // Tamaño del buffer de salida
 
 /*CONSTANTES CONTROL COMPRESOR DEL AIRE ACONDICIONADO*/
 #define Val_UmBaj 1  // Valor umbral de temperatura para apagado del embrague magnetico del comprespr del aire acondicionado

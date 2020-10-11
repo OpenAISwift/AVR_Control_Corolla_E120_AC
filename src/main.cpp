@@ -4,21 +4,20 @@
 #include "macros.h"
 #include "constant.h"
 #include "utility.h"
-#include "cactus_io_DHT22.h"
+#include "DHT.h"
 #include "Bounce2.h"
 #include "Servo.h"
 #include <math.h>
 /*FIN DE LIBRERIAS*/
 
-DHT22 dht(Dht_Room);
+DHT dht(6,DHT22);
+
 Bounce posicionLuz = Bounce();
 Servo servoAirMix;
 Servo servoVentMode;
 
+float Val_VRefADC; // Voltaje de referencia ADC
 /* INICO DEFINICIONES DE VARIABLES */
-
-float
-	ADCvRef = 0;
 int
 	tempEvaporador = 0,	   // Variable temperatura Evaporador
 	tempAmbiente = 0,	   // Variable temperatura Ambiente
@@ -60,8 +59,8 @@ unsigned long
 
 float temperatura(int RawADC, float A, float B, float C)
 {
-	float Vo = ((float)RawADC + 0.5) / 1024.0 * ADCvRef;
-	float resTermistor = (ADCvRef * Raux / Vo) - Raux;
+	float Vo = ((float)RawADC + 0.5) / 1024.0 * Val_VRefADC;
+	float resTermistor = (Val_VRefADC * Raux / Vo) - Raux;
 	float logRes = log(resTermistor);
 	float rTe = 1 / (A + (B * logRes) + (C * logRes * logRes * logRes));
 	float temC = rTe - 273.15;
@@ -107,11 +106,10 @@ void lecturaSensores()
 	}
 	if (Tie_Actu - Tie_ATeD >= Int_LecT)
 	{
-		dht.readTemperature();
-		dht.readHumidity();
-		tempInterior = dht.temperature_C;
-		humInterior = dht.humidity;
-		tempSensaInterior = dht.computeHeatIndex_C();
+		tempInterior = dht.readTemperature();
+		humInterior = dht.readHumidity();
+		Serial.println(dht.readTemperature());
+		tempSensaInterior = dht.computeHeatIndex(tempInterior,humInterior,false);
 		puntoRocio = Fun_DewPoint(tempInterior, humInterior);
 		Tie_ATeD = Tie_Actu; // Actualiza el tiempo para la siguiente lectura
 		Est_MAuto = 2;		 // Estado para el control de mensajes
@@ -579,13 +577,12 @@ void setup()
 	pinMode(Rel_Fan1, OUTPUT);
 	pinMode(Dig_Ac1, OUTPUT);
 	pinMode(Rel_WarningLight, OUTPUT);
-
-	// pinMode(Swi_Ill , INPUT);
+	
 	pinMode(Swi_Ill, INPUT);
 	pinMode(Swi_SingleAC, INPUT);
 	pinMode(Swi_DualAC, INPUT);
 	pinMode(Dig_Act, INPUT);
-	ADCvRef = Fun_VRefADC() / 1000.0;
+	Val_VRefADC = Fun_VRefADC() / 1000.0;
 
 	servoAirMix.attach(Ser_AirMix);
 	servoVentMode.attach(Ser_VentMode);
