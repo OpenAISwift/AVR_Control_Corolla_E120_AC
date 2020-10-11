@@ -586,7 +586,7 @@ void setup()
 	valorAirMix = map(0, 0, 6, 15, 135);
 	servoAirMix.write(valorAirMix);
 
-	Udp_FunParameter();
+	Upd_FunParameter();
 }
 
 void loop()
