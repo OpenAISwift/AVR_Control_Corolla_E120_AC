@@ -10,27 +10,26 @@
 #include <math.h>
 /*FIN DE LIBRERIAS*/
 
-DHT dht(6,DHT22);
-
-Bounce posicionLuz = Bounce();
 Servo servoAirMix;
 Servo servoVentMode;
+DHT dht(Dht_Room, DHT22);
+Bounce posicionLuz = Bounce();
 
 float Val_VRefADC; // Voltaje de referencia ADC
+
 /* INICO DEFINICIONES DE VARIABLES */
-int
-	tempEvaporador = 0,	   // Variable temperatura Evaporador
-	tempAmbiente = 0,	   // Variable temperatura Ambiente
-	tempInterior = 0,	   // Variable temperatura Interior
-	tempSensaInterior = 0, // Variable  Sensacion temperatura Interior
-	humInterior = 0,	   // Variable humedad Interior
-	puntoRocio = 0,		   // Valor de Punto de rocio
-	valorLuzAmbiental = 0, // Valor Fotodiodo
-	enteroDesdePc = 0;	   // Valor entero comando PC
+int Temp_Evaporador = 0; // Variable temperatura Evaporador
+int Temp_Ambiente = 0;	 // Variable temperatura Ambiente
+int Temp_Interior = 0;	 // Variable temperatura Interior
+int Temp_SInterior = 0;	 // Variable  Sensacion temperatura Interior
+int Humi_Interior = 0;	 // Variable humedad Interior
+int Temp_DewPoint = 0;	 // Valor de Punto de rocio
+int Illu_Ambiental = 0;	 // Valor Fotodiodo
+int enteroDesdePc = 0;	 // Valor entero comando PC
 
 char
-	receivedChars[Len_BufferInt],	// Vector Caracteres recivios
-	tempChars[Len_BufferInt],		// Vector tenporal para almacenar caracteres
+	receivedChars[Len_BufferInt],  // Vector Caracteres recivios
+	tempChars[Len_BufferInt],	   // Vector tenporal para almacenar caracteres
 	mensajeDesdePc[Len_BufferInt], // Vector Mensaje PC
 	buffer[Len_BufferOut];
 
@@ -91,12 +90,12 @@ void lecturaSensores()
 	if (Tie_Actu - Tie_ATeA >= Int_Prom)
 	{
 		unsigned int
-			ADC_ProA = ADC_TemA / ADC_Acum,					// Variable temporal para almacenar el promedio de las lecturas de sensores
-			ADC_ProE = ADC_TemE / ADC_Acum,					// Variable temporal para almacenar el promedio de las lecturas de sensores
-			ADC_ProL = ADC_LuzA / ADC_Acum;					// Variable temporal para almacenar el promedio de las lecturas de sensores
-		tempAmbiente = temperatura(ADC_ProA, Aa, Ba, Ca);	// Convercion del voltage a temperatura ambiente
-		tempEvaporador = temperatura(ADC_ProE, Ae, Be, Ce); // Convercion del voltage a temperatura del evaporador
-		valorLuzAmbiental = map(ADC_ProL, 0, 1023, 0, 100);
+			ADC_ProA = ADC_TemA / ADC_Acum,					 // Variable temporal para almacenar el promedio de las lecturas de sensores
+			ADC_ProE = ADC_TemE / ADC_Acum,					 // Variable temporal para almacenar el promedio de las lecturas de sensores
+			ADC_ProL = ADC_LuzA / ADC_Acum;					 // Variable temporal para almacenar el promedio de las lecturas de sensores
+		Temp_Ambiente = temperatura(ADC_ProA, Aa, Ba, Ca);	 // Convercion del voltage a temperatura ambiente
+		Temp_Evaporador = temperatura(ADC_ProE, Ae, Be, Ce); // Convercion del voltage a temperatura del evaporador
+		Illu_Ambiental = map(ADC_ProL, 0, 1023, 0, 100);
 		ADC_Acum = 0;		 // Reinicia las variables para las siguientes lecturas
 		ADC_TemA = 0;		 // Reinicia las variables para las siguientes lecturas
 		ADC_TemE = 0;		 // Reinicia las variables para las siguientes lecturas
@@ -106,11 +105,11 @@ void lecturaSensores()
 	}
 	if (Tie_Actu - Tie_ATeD >= Int_LecT)
 	{
-		tempInterior = dht.readTemperature();
-		humInterior = dht.readHumidity();
+		Temp_Interior = dht.readTemperature();
+		Humi_Interior = dht.readHumidity();
 		Serial.println(dht.readTemperature());
-		tempSensaInterior = dht.computeHeatIndex(tempInterior,humInterior,false);
-		puntoRocio = Fun_DewPoint(tempInterior, humInterior);
+		Temp_SInterior = dht.computeHeatIndex(Temp_Interior, Humi_Interior, false);
+		Temp_DewPoint = Fun_DewPoint(Temp_Interior, Humi_Interior);
 		Tie_ATeD = Tie_Actu; // Actualiza el tiempo para la siguiente lectura
 		Est_MAuto = 2;		 // Estado para el control de mensajes
 	}
@@ -408,7 +407,7 @@ void Con_EstComp() // Funcion para el control del compresor del aire acondiciona
 				{ // Lectura de la señal de ECU para desactivacion del compresor del aire acondicionado  (1 = Funcionamineto normal 0 = Apagar compresor)
 					if (Est_Comp & BOOL1)
 					{ // Control del encendido del compresor del aire acondicionado por umbral de temperatura del evaporador
-						if (tempEvaporador >= Val_UmAlt)
+						if (Temp_Evaporador >= Val_UmAlt)
 						{								   // Control de encendido cuando la temperatura umbral es superior o igual a la definida
 							Est_Comp &= ~BOOL1;			   // Cambio de estado para la activacion de temperatura por debajo o igual al valor umbral
 							digitalWrite(Rel_Cluch, HIGH); // Activa el embrague magnetico del compresor del aire acondicionado
@@ -418,7 +417,7 @@ void Con_EstComp() // Funcion para el control del compresor del aire acondiciona
 					}
 					else
 					{
-						if (tempEvaporador <= Val_UmBaj) // Control de apagado cuando la temperatura umbral es inferior o igual a la definida
+						if (Temp_Evaporador <= Val_UmBaj) // Control de apagado cuando la temperatura umbral es inferior o igual a la definida
 						{
 							Est_Comp |= BOOL1;			  // Cambio de estado para la activacion de temperatura superior o igual al valor umbral
 							digitalWrite(Rel_Cluch, LOW); // Desactiva el embrague magnetico del compresor del aire acondicionado
@@ -504,16 +503,16 @@ void Con_AutoCli() // Funcion para el control automatico del climatizador
 
 		if (Est_CAuto & BOOL1) // Control de encedido del climatizador segun el punto de rocio
 		{
-			if (tempAmbiente < puntoRocio) // Si la temperatura ambiente es inferior al punto de rocio
+			if (Temp_Ambiente < Temp_DewPoint) // Si la temperatura ambiente es inferior al punto de rocio
 			{
-				Est_CAuto &= ~BOOL1;			 // Cambia el control del climatizador para el apagado del climatizador
-				Est_AcAac = 1;					 // Activa el compresor del aire acondicionado
+				Est_CAuto &= ~BOOL1;			// Cambia el control del climatizador para el apagado del climatizador
+				Est_AcAac = 1;					// Activa el compresor del aire acondicionado
 				digitalWrite(Rel_Heater, HIGH); // Activa el conjunto del climatizador
 				analogWrite(Pwm_Blower, valorSoplador);
-				valorSoplador = map(3, 0, 6, 0, 255);	  // Asigna la velocidad de 3 al ventilador
+				valorSoplador = map(3, 0, 6, 0, 255); // Asigna la velocidad de 3 al ventilador
 				digitalWrite(Dig_Recirculation, LOW); // Desactiva la recirculacion
 				digitalWrite(Dig_AirFresh, HIGH);	  // Activa la entrada de aire desde afuera
-				servoVentMode.write(0);					  // Dirige todo el aire al parabrisa
+				servoVentMode.write(0);				  // Dirige todo el aire al parabrisa
 				//valorAirMix = map(3, 0, 6, 15, 135);	// Asigna entre la mescla de aire caliente y frio en 2
 				//servoAirMix.write(valorAirMix);
 				break;
@@ -522,7 +521,7 @@ void Con_AutoCli() // Funcion para el control automatico del climatizador
 		}
 		else
 		{
-			if (tempAmbiente > puntoRocio + 3)
+			if (Temp_Ambiente > Temp_DewPoint + 1)
 			{
 				Est_CAuto |= BOOL1; // Cambia el control del climatizador para el encendido del climatizador
 				Est_AcAac = 0;		// Desactiva el compresor del aire acondicionado
@@ -547,13 +546,13 @@ void Est_ActMens()
 	switch (Est_MAuto)
 	{
 	case 1: // Envia mensaje de sensores analogicos
-		sprintf(buffer, "< Ta:%d,Te:%d,La:%d >", tempAmbiente, tempEvaporador, valorLuzAmbiental);
+		sprintf(buffer, "< Ta:%d,Te:%d,La:%d >", Temp_Ambiente, Temp_Evaporador, Illu_Ambiental);
 		Serial.println(buffer);
 		Est_MAuto = 0;
 		break;
 
 	case 2: // Envia mensaje de sensores digitales
-		sprintf(buffer, "< Ti:%d,H:%d,Ts:%d,Pr:%d,Ta:%d,Te:%d,La:%d >", tempInterior, humInterior, tempSensaInterior, puntoRocio, tempAmbiente, tempEvaporador, valorLuzAmbiental);
+		sprintf(buffer, "< Ti:%d,H:%d,Ts:%d,Pr:%d,Ta:%d,Te:%d,La:%d >", Temp_Interior, Humi_Interior, Temp_SInterior, Temp_DewPoint, Temp_Ambiente, Temp_Evaporador, Illu_Ambiental);
 		Serial.println(buffer);
 		Est_MAuto = 0;
 		break;
@@ -577,7 +576,7 @@ void setup()
 	pinMode(Rel_Fan1, OUTPUT);
 	pinMode(Dig_Ac1, OUTPUT);
 	pinMode(Rel_WarningLight, OUTPUT);
-	
+
 	pinMode(Swi_Ill, INPUT);
 	pinMode(Swi_SingleAC, INPUT);
 	pinMode(Swi_DualAC, INPUT);
