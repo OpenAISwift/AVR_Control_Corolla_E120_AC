@@ -10,14 +10,19 @@
 #include <math.h>
 /*FIN DE LIBRERIAS*/
 
+/*DECLARACION DE CLASES*/
 Servo servoAirMix;
 Servo servoVentMode;
 DHT dht(Dht_Room, DHT22);
 Bounce posicionLuz = Bounce();
+/*DECLARACION DE CLASES*/
 
-float Val_VRefADC; // Voltaje de referencia ADC
+
+
 
 /* INICO DEFINICIONES DE VARIABLES */
+
+
 int Temp_Evaporador = 0; // Variable temperatura Evaporador
 int Temp_Ambiente = 0;	 // Variable temperatura Ambiente
 int Temp_Interior = 0;	 // Variable temperatura Interior
@@ -56,16 +61,7 @@ unsigned long
 	Tie_Actu = 0; // Variable que almacena el tiempo desde que se inicio el sistema
 /* FIN DEFINICIONES DE VARIABLES */
 
-float temperatura(int RawADC, float A, float B, float C)
-{
-	float Vo = ((float)RawADC + 0.5) / 1024.0 * Val_VRefADC;
-	float resTermistor = (Val_VRefADC * Raux / Vo) - Raux;
-	float logRes = log(resTermistor);
-	float rTe = 1 / (A + (B * logRes) + (C * logRes * logRes * logRes));
-	float temC = rTe - 273.15;
-	//temC = temC - (Vo * Vo) / (K * resTermistor); // Se desconoce el valor de dicipacion
-	return temC;
-}
+
 
 void lecturaSensores()
 {
@@ -93,8 +89,8 @@ void lecturaSensores()
 			ADC_ProA = ADC_TemA / ADC_Acum,					 // Variable temporal para almacenar el promedio de las lecturas de sensores
 			ADC_ProE = ADC_TemE / ADC_Acum,					 // Variable temporal para almacenar el promedio de las lecturas de sensores
 			ADC_ProL = ADC_LuzA / ADC_Acum;					 // Variable temporal para almacenar el promedio de las lecturas de sensores
-		Temp_Ambiente = temperatura(ADC_ProA, Aa, Ba, Ca);	 // Convercion del voltage a temperatura ambiente
-		Temp_Evaporador = temperatura(ADC_ProE, Ae, Be, Ce); // Convercion del voltage a temperatura del evaporador
+		Temp_Ambiente = Fun_ConTemperature(ADC_ProA, Aa, Ba, Ca);	 // Convercion del voltage a temperatura ambiente
+		Temp_Evaporador = Fun_ConTemperature(ADC_ProE, Ae, Be, Ce); // Convercion del voltage a temperatura del evaporador
 		Illu_Ambiental = map(ADC_ProL, 0, 1023, 0, 100);
 		ADC_Acum = 0;		 // Reinicia las variables para las siguientes lecturas
 		ADC_TemA = 0;		 // Reinicia las variables para las siguientes lecturas
@@ -581,7 +577,7 @@ void setup()
 	pinMode(Swi_SingleAC, INPUT);
 	pinMode(Swi_DualAC, INPUT);
 	pinMode(Dig_Act, INPUT);
-	Val_VRefADC = Fun_VRefADC() / 1000.0;
+	
 
 	servoAirMix.attach(Ser_AirMix);
 	servoVentMode.attach(Ser_VentMode);
@@ -589,6 +585,8 @@ void setup()
 	posicionLuz.interval(5);
 	valorAirMix = map(0, 0, 6, 15, 135);
 	servoAirMix.write(valorAirMix);
+
+	Udp_FunParameter();
 }
 
 void loop()
