@@ -4,7 +4,7 @@
 #include "macros.h"
 #include "constant.h"
 #include "utility.h"
-#include "DHT.h"
+#include "cactus_io_DHT22.h"
 #include "Bounce2.h"
 #include "Servo.h"
 #include <math.h>
@@ -13,7 +13,7 @@
 /*DECLARACION DE CLASES*/
 Servo servoAirMix;
 Servo servoVentMode;
-DHT dht(Dht_Room, DHT22);
+DHT22 dht(Dht_Room);
 Bounce posicionLuz = Bounce();
 /*DECLARACION DE CLASES*/
 
@@ -481,7 +481,8 @@ void setup()
 	Serial.begin(Spe_Serial);
 
 	dht.begin();
-
+	Upd_FunParameter();
+	
 	pinMode(Pwm_Blower, OUTPUT);
 	pinMode(Rel_Heater, OUTPUT);
 	pinMode(Rel_Defroster, OUTPUT);
@@ -504,7 +505,7 @@ void setup()
 	valorAirMix = map(0, 0, 6, 15, 135);
 	servoAirMix.write(valorAirMix);
 
-	Upd_FunParameter();
+	
 }
 
 void loop()
@@ -603,9 +604,11 @@ void lecturaSensores()
 	}
 	if (Tim_Current - Tim_PreDigital >= Int_LecDigital)
 	{
-		Temp_AntInterior = dht.readTemperature();
-		Humi_AntInterior = dht.readHumidity();
-		Temp_AntSInterior = dht.computeHeatIndex(Temp_Interior, Humi_Interior, false);
+		dht.readHumidity();
+		dht.readTemperature();
+		Temp_AntInterior = dht.temperature_C;
+		Humi_AntInterior = dht.humidity;
+		Temp_AntSInterior = dht.computeHeatIndex_C();
 		Temp_AntDewPoint = Fun_DewPoint(Temp_Interior, Humi_Interior);
 
 		if (Temp_AntInterior != Temp_Interior)
