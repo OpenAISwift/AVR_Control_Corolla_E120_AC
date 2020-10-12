@@ -19,113 +19,100 @@ Bounce posicionLuz = Bounce();
 
 /* INICO DEFINICIONES DE VARIABLES */
 
-int Temp_Evaporador = 0; // Variable temperatura Evaporador
-int Temp_Ambiente = 0;	 // Variable temperatura Ambiente
-int Temp_Interior = 0;	 // Variable temperatura Interior
-int Temp_SInterior = 0;	 // Variable  Sensacion temperatura Interior
-int Humi_Interior = 0;	 // Variable humedad Interior
-int Temp_DewPoint = 0;	 // Valor de Punto de rocio
-int Illu_Ambiental = 0;	 // Valor Fotodiodo
-int enteroDesdePc = 0;	 // Valor entero comando PC
+/*
+BOOL1 = Temperatura Evaporador
+BOOL2 = Temperatura Ambiente
+BOOL3 = Luz Ambiental
+BOOL4 = Temperatura Interior
+BOOL5 = Humedad Interior
+BOOL6 = Temperatura Sensacion Interior
+BOOL7 = Punto de rocio
+BOOL8 = 
+*/
+uint8_t Sta_Sensors;
 
-char
-	receivedChars[Len_BufferInt],  // Vector Caracteres recivios
-	tempChars[Len_BufferInt],	   // Vector tenporal para almacenar caracteres
-	mensajeDesdePc[Len_BufferInt], // Vector Mensaje PC
-	buffer[Len_BufferOut];
+/*
+BOOL1 = Interruptor de Iluminacion Interior
+*/
+uint8_t Sta_Switch;
 
-uint8_t
-	Est_Auto1 = 0, // Estado boleanos para el control automaico
+/*
+BOOL1 = Interruptor de la Iluminacion
+*/
+uint8_t Sta_Control;
 
-	/*
-	BOOL1 = Estado boleano para el control de desempañamiento automatico
-	*/
+/*
+BOOL1 = Control de desempañamiento automatico
+BOOL2 = Control de envio de datos
+BOOL3 = Control de recepcion de datos
+*/
+uint8_t Sta_Auto1;
 
-	valorSoplador = 0,
-	valorAirMix = 0,
-	Est_AcAac = 255, // Estado para el control de encendido del compresor del aire acondicionado
-	Est_ADese = 255, // Estado para el desempañamiento automatico parabrisa delantera
-	Est_RFan1 = 0,	 // Estado control del relay de la refrigeracion del motor
-	Est_MAuto = 0,	 // Estado para el envio de mensajes de sensores de temperatura
-	estadoCuartos = 0,
-	flagCuartos = 0,
-	estadoRel_Heater = 0,
-	estadoSingleAc = 0,
-	mensajeNuevo = 0;
+int8_t Temp_AntEvaporador = 0; // Variable temperatura Anterior Evaporador
+int8_t Temp_Evaporador = 0;	   // Variable temperatura Evaporador
 
-unsigned long
-	Tie_Actu = 0; // Variable que almacena el tiempo desde que se inicio el sistema
+int8_t Temp_AntAmbiente = 0; // Variable temperatura Anterior Ambiente
+int8_t Temp_Ambiente = 0;	 // Variable temperatura Ambiente
+
+uint8_t Illu_AntAmbiental = 0; // Valor Fotodiodo
+uint8_t Illu_Ambiental = 0;	   // Valor Fotodiodo
+
+int8_t Temp_AntInterior = 0; // Variable temperatura Anterior Interior
+int8_t Temp_Interior = 0;	 // Variable temperatura Interior
+
+uint8_t Humi_AntInterior = 0; // Variable humedad Anterior Interior
+uint8_t Humi_Interior = 0;	  // Variable humedad Interior
+
+int8_t Temp_AntSInterior = 0; // Variable  Sensacion Anterior temperatura Interior
+int8_t Temp_SInterior = 0;	  // Variable  Sensacion temperatura Interior
+
+int8_t Temp_AntDewPoint = 0; // Valor Anterior de Punto de rocio
+int8_t Temp_DewPoint = 0;	 // Valor de Punto de rocio
+
+int enteroDesdePc = 0; // Valor entero comando PC
+
+char receivedChars[Len_BufferInt];	// Vector Caracteres recivios
+char tempChars[Len_BufferInt];		// Vector tenporal para almacenar caracteres
+char mensajeDesdePc[Len_BufferInt]; // Vector Mensaje PC
+
+uint8_t valorSoplador = 0;
+uint8_t valorAirMix = 0;
+uint8_t Est_AcAac = 255; // Estado para el control de encendido del compresor del aire acondicionado
+uint8_t Est_ADese = 255; // Estado para el desempañamiento automatico parabrisa delantera
+uint8_t Est_RFan1 = 0;	 // Estado control del relay de la refrigeracion del motor
+uint8_t estadoRel_Heater = 0;
+uint8_t estadoSingleAc = 0;
+
+unsigned long Tim_Current = 0; // Variable que almacena el tiempo desde que se inicio el sistema
 /* FIN DEFINICIONES DE VARIABLES */
 
 /*FUNCIONES PROTOTIPO*/
 void lecturaComandosPc();
+void lecturaSensores();
+void Est_ActMens();
 /*FUNCIONES PROTOTIPO*/
 
-void lecturaSensores()
-{
-	static int
-		ADC_Acum = 0; // Variable para acumular las lecturas del ADC
-	static unsigned long
-		Tie_ATeA = 0, // Tiempo anterior lectura temperatura sensores analogos
-		Tie_ATeD = 0, // Tiempo anterior lectura temperatura sensores digitales
-		ADC_LuzA = 0, // Variable para acumular las lecturas del sensor de Luz
-		ADC_TemE = 0, // Variable para acumular las lecturas del sensor de temperatura Evaporador
-		ADC_TemA = 0; // Variable para acumular las lecturas del sensor de temperatura Ambiente
-
-	ADC_LuzA += analogRead(Fot_Solar);		// Acumula las lecturas del sensor de luz ambiente
-	ADC_TemA += analogRead(Ter_Ambient);	// Acumula las lecturas del sensor de temperatura Ambiente
-	ADC_TemE += analogRead(Ter_Evaporador); // Acumula las lecturas del sensor de temperatura del evaporador
-	ADC_Acum++;								// Acumulador para el numero de lecturas de los sensores
-
-	estadoSingleAc = digitalRead(Swi_SingleAC); //Asignacion de estado preostato interruptor simple
-	posicionLuz.update();						// Actualiza el estados de las luces
-	estadoCuartos = posicionLuz.read();			//Asignacion de estado luces
-
-	if (Tie_Actu - Tie_ATeA >= Int_Prom)
-	{
-		unsigned int
-			ADC_ProA = ADC_TemA / ADC_Acum,							// Variable temporal para almacenar el promedio de las lecturas de sensores
-			ADC_ProE = ADC_TemE / ADC_Acum,							// Variable temporal para almacenar el promedio de las lecturas de sensores
-			ADC_ProL = ADC_LuzA / ADC_Acum;							// Variable temporal para almacenar el promedio de las lecturas de sensores
-		Temp_Ambiente = Fun_ConTemperature(ADC_ProA, Aa, Ba, Ca);	// Convercion del voltage a temperatura ambiente
-		Temp_Evaporador = Fun_ConTemperature(ADC_ProE, Ae, Be, Ce); // Convercion del voltage a temperatura del evaporador
-		Illu_Ambiental = map(ADC_ProL, 0, 1023, 0, 100);
-		ADC_Acum = 0;		 // Reinicia las variables para las siguientes lecturas
-		ADC_TemA = 0;		 // Reinicia las variables para las siguientes lecturas
-		ADC_TemE = 0;		 // Reinicia las variables para las siguientes lecturas
-		ADC_LuzA = 0;		 // Reinicia las variables para las siguientes lecturas
-		Tie_ATeA = Tie_Actu; // Actualiza el tiempo para la siguiente lectura
-		Est_MAuto = 1;		 // Estado para el control de mensajes
-	}
-	if (Tie_Actu - Tie_ATeD >= Int_LecT)
-	{
-		Temp_Interior = dht.readTemperature();
-		Humi_Interior = dht.readHumidity();
-		Serial.println(dht.readTemperature());
-		Temp_SInterior = dht.computeHeatIndex(Temp_Interior, Humi_Interior, false);
-		Temp_DewPoint = Fun_DewPoint(Temp_Interior, Humi_Interior);
-		Tie_ATeD = Tie_Actu; // Actualiza el tiempo para la siguiente lectura
-		Est_MAuto = 2;		 // Estado para el control de mensajes
-	}
-}
 void controlAutomatico()
 {
-	if (estadoCuartos)
+	posicionLuz.update();
+	digitalWrite(Rel_Fan1, (estadoSingleAc || Est_RFan1));
+
+	if (posicionLuz.read())
 	{
-		if (!flagCuartos)
+		if (!(Sta_Switch & BOOL1))
 		{
-			flagCuartos = 1;
-			sprintf(buffer, "< I:%d >", flagCuartos);
-			Serial.println(buffer);
+			Sta_Switch |= BOOL1;
+			Sta_Control |= BOOL1;
+			Sta_Auto1 |= BOOL2;
 		}
 	}
 	else
 	{
-		if (flagCuartos)
+		if (Sta_Switch & BOOL1)
 		{
-			flagCuartos = 0;
-			sprintf(buffer, "< I:%d >", flagCuartos);
-			Serial.println(buffer);
+			Sta_Switch &= ~BOOL1;
+			Sta_Control |= BOOL1;
+			Sta_Auto1 |= BOOL2;
 		}
 	}
 }
@@ -222,7 +209,7 @@ void controlManual()
 	case 'e': // Control del desempañador Parabrisas delantero
 		if (enteroDesdePc == 1)
 		{
-			if (Est_Auto1 & BOOL1) // Comprueba si esta activado el control automatico
+			if (Sta_Auto1 & BOOL1) // Comprueba si esta activado el control automatico
 			{
 				Est_ADese = 2; // Inicia el desempañamiento automatico
 				break;
@@ -271,12 +258,12 @@ void controlManual()
 	case 'z':					// Desempañador Automatico parabrisas delantera
 		if (enteroDesdePc == 1) // Cuando este en 1 el desempañador automatico estara funcionando
 		{
-			Est_Auto1 |= BOOL1; // Activamos el funcionamiento del desempañador automatico
+			Sta_Auto1 |= BOOL1; // Activamos el funcionamiento del desempañador automatico
 			break;
 		}
 		else
 		{
-			Est_Auto1 &= ~BOOL1; // Desactivamos el funcionamiento del desempañador automatico
+			Sta_Auto1 &= ~BOOL1; // Desactivamos el funcionamiento del desempañador automatico
 			break;
 		}
 		break;
@@ -328,12 +315,12 @@ void Con_EstComp() // Funcion para el control del compresor del aire acondiciona
 
 		Est_AcAac = 2;				 // Cambia al siguiente estado
 		digitalWrite(Dig_Ac1, HIGH); // Activa la salida para la ECU aumente el ralentí
-		Tie_AaAC = Tie_Actu;		 // Actualiza el temporizador
+		Tie_AaAC = Tim_Current;		 // Actualiza el temporizador
 		Est_RFan1 = 1;				 // Activa el relay del ventilador de refigeracion del radiador
 		break;
 
 	case 2: // Espera de tiempo asignado a Tie_AaAC para la espera de encendido y comprobacion del compresor del aire acondicionado
-		if (Tie_Actu - Tie_AaAC >= Int_ActE)
+		if (Tim_Current - Tie_AaAC >= Int_ActE)
 		{
 			Est_Comp |= BOOL1; // Reinicia el estado de encendido del del compresor por temperatura
 			Est_AcAac = 3;	   // Cambia al siguiente estado
@@ -398,7 +385,7 @@ void Con_EstComp() // Funcion para el control del compresor del aire acondiciona
 	case 4: // Cuando la ECU ordena apagar el compresor del aire acondicionado
 
 		digitalWrite(Rel_Cluch, LOW); // Desactiva el embrague magnetico del compresor del aire acondicionado
-		Tie_AaAC = Tie_Actu;		  // Actualiza el temporizador
+		Tie_AaAC = Tim_Current;		  // Actualiza el temporizador
 		Est_AcAac = 2;				  // Cambia al siguiente estado
 		break;
 
@@ -488,31 +475,11 @@ void Con_AutoCli() // Funcion para el control automatico del climatizador
 	}
 	//////////////////////////////////////////////////////////////////////////
 }
-void Est_ActMens()
-{ // Funcion para enviar los datos de los sensores
-	switch (Est_MAuto)
-	{
-	case 1: // Envia mensaje de sensores analogicos
-		sprintf(buffer, "< Ta:%d,Te:%d,La:%d >", Temp_Ambiente, Temp_Evaporador, Illu_Ambiental);
-		Serial.println(buffer);
-		Est_MAuto = 0;
-		break;
-
-	case 2: // Envia mensaje de sensores digitales
-		sprintf(buffer, "< Ti:%d,H:%d,Ts:%d,Pr:%d,Ta:%d,Te:%d,La:%d >", Temp_Interior, Humi_Interior, Temp_SInterior, Temp_DewPoint, Temp_Ambiente, Temp_Evaporador, Illu_Ambiental);
-		Serial.println(buffer);
-		Est_MAuto = 0;
-		break;
-
-	default: // Caso por defecto no haga nada
-		break;
-	}
-}
 
 void setup()
 {
 	Serial.begin(Spe_Serial);
-	
+
 	dht.begin();
 
 	pinMode(Pwm_Blower, OUTPUT);
@@ -542,8 +509,7 @@ void setup()
 
 void loop()
 {
-	Tie_Actu = millis(); // Actualiza el tiempo para los temporizadores
-	digitalWrite(Rel_Fan1, (estadoSingleAc || Est_RFan1));
+	Tim_Current = millis(); // Actualiza el tiempo para los temporizadores
 	lecturaSensores();
 	lecturaComandosPc();
 	controlAutomatico();
@@ -552,13 +518,12 @@ void loop()
 	Con_AutoCli();
 }
 
-
 void lecturaComandosPc()
 {
 	static boolean recvInProgress = false;
 	static byte ndx = 0;
 	char rc;
-	if (Serial.available() > 0 && !mensajeNuevo)
+	if (Serial.available() > 0 && !(Sta_Auto1 & BOOL3))
 	{
 		rc = Serial.read();
 		if (recvInProgress)
@@ -577,7 +542,7 @@ void lecturaComandosPc()
 				receivedChars[ndx] = '\0'; // Termina la cadena
 				recvInProgress = false;
 				ndx = 0;
-				mensajeNuevo = true;
+				Sta_Auto1 |= BOOL3;
 			}
 		}
 		else if (rc == Ini_Trama)
@@ -585,7 +550,7 @@ void lecturaComandosPc()
 			recvInProgress = true;
 		}
 	}
-	if (mensajeNuevo)
+	if (Sta_Auto1 & BOOL3)
 	{
 		strcpy(tempChars, receivedChars);
 		/* Divide los datos en sus partes*/
@@ -597,6 +562,159 @@ void lecturaComandosPc()
 		enteroDesdePc = atoi(strtokIndx);	 // Convierte a un numero entero
 		/////////////////////////////////////////////////////////////////////////////////////////////////
 		controlManual();
-		mensajeNuevo = false;
+		Sta_Auto1 &= ~BOOL3;
+	}
+}
+
+void lecturaSensores()
+{
+	static unsigned long Tim_PreTermistores = 0; // Tiempo anterior lectura temperatura sensores analogos
+	static unsigned long Tim_PreDigital = 0;	 // Tiempo anterior lectura temperatura sensores digitales
+
+	estadoSingleAc = digitalRead(Swi_SingleAC); //Asignacion de estado preostato interruptor simple
+
+	if (Tim_Current - Tim_PreTermistores >= Int_LecTermistores)
+	{
+
+		Temp_AntEvaporador = Fun_ConTemperature(analogRead(Ter_Evaporador), Ae, Be, Ce); // Convercion del voltage a temperatura del evaporador
+		Temp_AntAmbiente = Fun_ConTemperature(analogRead(Ter_Ambient), Aa, Ba, Ca);		 // Convercion del voltage a temperatura ambiente
+		Illu_AntAmbiental = map(analogRead(Fot_Solar), 0, 1023, 0, 100);				 // Convercion del voltage a iluminacion ambiental
+
+		if (Temp_AntEvaporador != Temp_Evaporador)
+		{
+			Temp_Evaporador = Temp_AntEvaporador;
+			Sta_Auto1 |= BOOL2;
+			Sta_Sensors |= BOOL1;
+		}
+		if (Temp_AntAmbiente != Temp_Ambiente)
+		{
+			Temp_Ambiente = Temp_AntAmbiente;
+			Sta_Auto1 |= BOOL2;
+			Sta_Sensors |= BOOL2;
+		}
+		if (Illu_AntAmbiental != Illu_Ambiental)
+		{
+			Illu_Ambiental = Illu_AntAmbiental;
+			Sta_Auto1 |= BOOL2;
+			Sta_Sensors |= BOOL3;
+		}
+
+		Tim_PreTermistores = Tim_Current; // Actualiza el tiempo para la siguiente lectura
+	}
+	if (Tim_Current - Tim_PreDigital >= Int_LecDigital)
+	{
+		Temp_AntInterior = dht.readTemperature();
+		Humi_AntInterior = dht.readHumidity();
+		Temp_AntSInterior = dht.computeHeatIndex(Temp_Interior, Humi_Interior, false);
+		Temp_AntDewPoint = Fun_DewPoint(Temp_Interior, Humi_Interior);
+
+		if (Temp_AntInterior != Temp_Interior)
+		{
+			Temp_Interior = Temp_AntInterior;
+			Sta_Auto1 |= BOOL2;
+			Sta_Sensors |= BOOL4;
+		}
+		if (Humi_AntInterior != Humi_Interior)
+		{
+			Humi_Interior = Humi_AntInterior;
+			Sta_Auto1 |= BOOL2;
+			Sta_Sensors |= BOOL5;
+		}
+		if (Temp_AntSInterior != Temp_SInterior)
+		{
+			Temp_SInterior = Temp_AntSInterior;
+			Sta_Auto1 |= BOOL2;
+			Sta_Sensors |= BOOL6;
+		}
+		if (Temp_AntDewPoint != Temp_DewPoint)
+		{
+			Temp_DewPoint = Temp_AntDewPoint;
+			Sta_Auto1 |= BOOL2;
+			Sta_Sensors |= BOOL7;
+		}
+		Tim_PreDigital = Tim_Current;
+	}
+}
+
+void Est_ActMens() // Funcion para enviar los datos de los sensores
+{
+	/************************************************************************/
+	/* IDENTIFICACION DE LOS SENSORES                                       */
+	/************************************************************************/
+	/*
+	-Te = Temperatura Evaporador
+	-Ta = Temperatura Ambiente
+	-La = Iluminacion Ambietal
+	-Ti = Temperatura Interior
+	-H = Humedad Interior
+	-Ts = Temperatura sensacion Interior
+	-Pr = Punto Rocio
+	-I = Iluminacion Interior
+	*/
+	String Aux_MMessage;
+	if (Sta_Auto1 & BOOL2)
+	{
+		Aux_MMessage += Ini_Trama;
+		Aux_MMessage += " ";
+		if (Sta_Sensors & BOOL1)
+		{
+			Sta_Sensors &= ~BOOL1;
+			Aux_MMessage += "Te:";
+			Aux_MMessage += Temp_Evaporador;
+			Aux_MMessage += " ";
+		}
+		if (Sta_Sensors & BOOL2)
+		{
+			Sta_Sensors &= ~BOOL2;
+			Aux_MMessage += "Ta:";
+			Aux_MMessage += Temp_Ambiente;
+			Aux_MMessage += " ";
+		}
+		if (Sta_Sensors & BOOL3)
+		{
+			Sta_Sensors &= ~BOOL3;
+			Aux_MMessage += "La:";
+			Aux_MMessage += Illu_Ambiental;
+			Aux_MMessage += " ";
+		}
+		if (Sta_Sensors & BOOL4)
+		{
+			Sta_Sensors &= ~BOOL4;
+			Aux_MMessage += "Ti:";
+			Aux_MMessage += Temp_Interior;
+			Aux_MMessage += " ";
+		}
+		if (Sta_Sensors & BOOL5)
+		{
+			Sta_Sensors &= ~BOOL5;
+			Aux_MMessage += "H:";
+			Aux_MMessage += Humi_Interior;
+			Aux_MMessage += " ";
+		}
+		if (Sta_Sensors & BOOL6)
+		{
+			Sta_Sensors &= ~BOOL6;
+			Aux_MMessage += "Ts:";
+			Aux_MMessage += Temp_SInterior;
+			Aux_MMessage += " ";
+		}
+		if (Sta_Sensors & BOOL7)
+		{
+			Sta_Sensors &= ~BOOL7;
+			Aux_MMessage += "Pr:";
+			Aux_MMessage += Temp_DewPoint;
+			Aux_MMessage += " ";
+		}
+		if (Sta_Control & BOOL1)
+		{
+			Sta_Control &= ~BOOL1;
+			Aux_MMessage += "I:";
+			Aux_MMessage += (Sta_Switch & BOOL1);
+			Aux_MMessage += " ";
+		}
+		Aux_MMessage += End_Trama;
+		Serial.println(Aux_MMessage);
+		Aux_MMessage = " ";
+		Sta_Auto1 &= ~BOOL2;
 	}
 }

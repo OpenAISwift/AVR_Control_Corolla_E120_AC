@@ -8,7 +8,6 @@ void Upd_FunParameter()
 {
 	Val_VRefADC = Fun_VRefADC() / 1000.0;
 }
-
 float Fun_VRefADC()
 {
 	long result;
@@ -21,7 +20,6 @@ float Fun_VRefADC()
 	result = 1125300L / result;
 	return result;
 }
-
 double Fun_DewPoint(double Val_TempC, double Val_HumeR)
 {
 	double RATIO = 373.15 / (273.15 + Val_TempC);
@@ -34,7 +32,6 @@ double Fun_DewPoint(double Val_TempC, double Val_HumeR)
 	double T = log(VP / 0.61078);
 	return (241.88 * T) / (17.558 - T);
 }
-
 float Fun_ConTemperature(int RawADC, float A, float B, float C)
 {
 	float Vo = ((float)RawADC + 0.5) / 1024.0 * Val_VRefADC;
