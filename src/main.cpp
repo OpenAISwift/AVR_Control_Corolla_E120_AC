@@ -36,6 +36,7 @@ BOOL1 = Interruptor de Iluminacion Interior
 BOOL2 = Heater Relay
 BOOL3 = Relay Fan1
 BOOL4 = Compresor A/C
+BOOL5 = Preostato interruptor simple (Proteccion Aire Acondicionado)
 */
 uint8_t Sta_Switch;
 
@@ -43,6 +44,7 @@ uint8_t Sta_Switch;
 BOOL1 = Interruptor de la Iluminacion
 BOOL2 = Estado relay Fan1
 BOOL3 = Estado Compresor A/C
+BOOL4 = Preostato interruptor simple (Proteccion Aire Acondicionado)
 */
 uint8_t Sta_Control;
 
@@ -70,7 +72,6 @@ uint8_t valorSoplador = 0;
 uint8_t valorAirMix = 0;
 uint8_t Est_AcAac = 255; // Estado para el control de encendido del compresor del aire acondicionado
 uint8_t Est_ADese = 255; // Estado para el desempañamiento automatico parabrisa delantera
-uint8_t estadoSingleAc = 0;
 
 unsigned long Tim_Current = 0; // Variable que almacena el tiempo desde que se inicio el sistema
 /* FIN DEFINICIONES DE VARIABLES */
@@ -176,7 +177,7 @@ void controlManual()
 			{
 				Est_ADese = 0; // Desactiva el desempañador
 				break;
-			}			
+			}
 		}
 
 	case 'f': // Control de recirculacion del sistema del aire acondicionado
@@ -493,6 +494,7 @@ void Con_Comp() // Funcion para el control del compresor del aire acondicionado
 void controlAutomatico()
 {
 	posicionLuz.update();
+
 	if (posicionLuz.read())
 	{
 		if (!(Sta_Switch & BOOL1))
@@ -512,8 +514,26 @@ void controlAutomatico()
 		}
 	}
 
-	estadoSingleAc = digitalRead(Swi_SingleAC); //Asignacion de estado preostato interruptor simple
-	digitalWrite(Rel_Fan1, (estadoSingleAc || (Sta_Switch & BOOL3)));
+	if (digitalRead(Swi_SingleAC))
+	{
+		if (!(Sta_Switch & BOOL5))
+		{
+			Sta_Switch |= BOOL5;
+			Sta_Control |= BOOL4;
+			Sta_Auto1 |= BOOL2;
+		}
+	}
+	else
+	{
+		if (Sta_Switch & BOOL5)
+		{
+			Sta_Switch &=~ BOOL5;
+			Sta_Control |= BOOL4;
+			Sta_Auto1 |= BOOL2;
+		}
+	}
+
+	digitalWrite(Rel_Fan1, ((Sta_Switch & BOOL5) || (Sta_Switch & BOOL3)));
 }
 void lecturaComandosPc()
 {
@@ -715,21 +735,56 @@ void Est_ActMens() // Funcion para enviar los datos de los sensores
 		{
 			Sta_Control &= ~BOOL1;
 			Aux_MMessage += "I:";
-			Aux_MMessage += (Sta_Switch & BOOL1);
+			if (Sta_Switch & BOOL1)
+			{
+				Aux_MMessage += "1";
+			}
+			else
+			{
+				Aux_MMessage += "0";
+			}
 			Aux_MMessage += " ";
 		}
 		if (Sta_Control & BOOL2)
 		{
 			Sta_Control &= ~BOOL2;
 			Aux_MMessage += "F1:";
-			Aux_MMessage += (Sta_Switch & BOOL3);
+			if (Sta_Switch & BOOL3)
+			{
+				Aux_MMessage += "1";
+			}
+			else
+			{
+				Aux_MMessage += "0";
+			}
 			Aux_MMessage += " ";
 		}
 		if (Sta_Control & BOOL3)
 		{
 			Sta_Control &= ~BOOL3;
 			Aux_MMessage += "Co:";
-			Aux_MMessage += (Sta_Switch & BOOL4);
+			if (Sta_Switch & BOOL4)
+			{
+				Aux_MMessage += "1";
+			}
+			else
+			{
+				Aux_MMessage += "0";
+			}
+			Aux_MMessage += " ";
+		}
+		if (Sta_Control & BOOL4)
+		{
+			Sta_Control &= ~BOOL4;
+			Aux_MMessage += "F1:";
+			if (Sta_Switch & BOOL5)
+			{
+				Aux_MMessage += "1";
+			}
+			else
+			{
+				Aux_MMessage += "0";
+			}
 			Aux_MMessage += " ";
 		}
 
