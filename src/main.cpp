@@ -162,22 +162,21 @@ void controlManual()
 	case 'e': // Control del desempañador Parabrisas delantero
 		if (enteroDesdePc == 1)
 		{
-			if (Sta_Auto1 & BOOL1) // Comprueba si esta activado el control automatico
-			{
-				Est_ADese = 2; // Inicia el desempañamiento automatico
-				break;
-			}
-			else
-			{
-				Est_ADese = 1; // Inicia el desempañador manual
-				break;
-			}
+			Est_ADese = 2; // Inicia el desempañador manual
 			break;
 		}
 		else
 		{
-			Est_ADese = 0;
-			break;
+			if (Sta_Auto1 & BOOL1) // Comprueba si esta activado el control automatico
+			{
+				Est_ADese = 1; // Inicia el desempañamiento automatico
+				break;
+			}
+			else
+			{
+				Est_ADese = 0; // Desactiva el desempañador
+				break;
+			}			
 		}
 
 	case 'f': // Control de recirculacion del sistema del aire acondicionado
@@ -210,7 +209,7 @@ void controlManual()
 		if (enteroDesdePc == 1)
 		{
 			Sta_Auto1 |= BOOL1; // Activamos el funcionamiento automatico
-			Est_ADese = 2;		// Inicia el desempañamiento automatico
+			Est_ADese = 1;		// Inicia el desempañamiento automatico (Estado de Transicion)
 			break;
 		}
 		else
@@ -248,7 +247,7 @@ void Con_AutoCli() // Funcion para el control automatico del climatizador
 
 	switch (Est_ADese)
 	{
-	case 0: // Desactiva el desempañamiento automatico
+	case 0: // Desactiva el desempañamiento
 
 		Est_AcAac = 0;							// Desactiva el compresor del aire acondicionado
 		valorSoplador = map(0, 0, 6, 0, 255);	// Asigna la velocidad del Pwm_Blower
@@ -259,7 +258,18 @@ void Con_AutoCli() // Funcion para el control automatico del climatizador
 		Est_ADese = 255;						// Cambia al siguiente estado
 		break;
 
-	case 1: // Caso 1 para el inicio de desempañamiento manual
+	case 1: // Estado de transicion desempañamiento automatico
+
+		Est_AcAac = 0;							// Desactiva el compresor del aire acondicionado
+		valorSoplador = map(0, 0, 6, 0, 255);	// Asigna la velocidad del Pwm_Blower
+		digitalWrite(Rel_Heater, LOW);			// Desactiva el relay del conjunto del aire acondicionado
+		analogWrite(Pwm_Blower, valorSoplador); // Asigna el pwm del Pwm_Blower
+		digitalWrite(Dig_Recirculation, HIGH);	// Activa la recirculacion
+		digitalWrite(Dig_AirFresh, LOW);		// Desactiva la entrada de aire desde afuera
+		Est_ADese = 3;							// Cambia al siguiente estado
+		break;
+
+	case 2: // Caso 1 para el inicio de desempañamiento manual
 
 		Est_AcAac = 1;							// Activa el compresor del aire acondicionado
 		digitalWrite(Rel_Heater, HIGH);			// Activa el relay del conjunto del aire acondicionado
@@ -271,13 +281,13 @@ void Con_AutoCli() // Funcion para el control automatico del climatizador
 		Est_ADese = 255;						// Cambia al siguiente estado
 		break;
 
-	case 2: // Inicia el desempañador automatico
+	case 3: // Inicia el desempañador automatico
 
 		Est_CAuto |= BOOL1; // Incia la variable para encendido de climatizador segun el punto de rocio
-		Est_ADese = 3;		// Cambia al siguiente estado
+		Est_ADese = 4;		// Cambia al siguiente estado
 		break;
 
-	case 3: // Contorl de encendido y apagado del sistema de aire acondicionado
+	case 4: // Contorl de encendido y apagado del sistema de aire acondicionado
 
 		if (Est_CAuto & BOOL1) // Control de encedido del climatizador segun el punto de rocio
 		{
