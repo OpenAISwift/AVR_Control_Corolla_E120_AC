@@ -33,11 +33,16 @@ uint8_t Sta_Sensors;
 
 /*
 BOOL1 = Interruptor de Iluminacion Interior
+BOOL2 = Heater Relay
+BOOL3 = Relay Fan1
+BOOL4 = Compresor A/C
 */
 uint8_t Sta_Switch;
 
 /*
 BOOL1 = Interruptor de la Iluminacion
+BOOL2 = Estado relay Fan1
+BOOL3 = Estado Compresor A/C
 */
 uint8_t Sta_Control;
 
@@ -48,28 +53,14 @@ BOOL3 = Control de recepcion de datos
 */
 uint8_t Sta_Auto1;
 
-int8_t Temp_AntEvaporador = 0; // Variable temperatura Anterior Evaporador
-int8_t Temp_Evaporador = 0;	   // Variable temperatura Evaporador
-
-int8_t Temp_AntAmbiente = 0; // Variable temperatura Anterior Ambiente
-int8_t Temp_Ambiente = 0;	 // Variable temperatura Ambiente
-
-uint8_t Illu_AntAmbiental = 0; // Valor Fotodiodo
-uint8_t Illu_Ambiental = 0;	   // Valor Fotodiodo
-
-int8_t Temp_AntInterior = 0; // Variable temperatura Anterior Interior
-int8_t Temp_Interior = 0;	 // Variable temperatura Interior
-
-uint8_t Humi_AntInterior = 0; // Variable humedad Anterior Interior
-uint8_t Humi_Interior = 0;	  // Variable humedad Interior
-
-int8_t Temp_AntSInterior = 0; // Variable  Sensacion Anterior temperatura Interior
-int8_t Temp_SInterior = 0;	  // Variable  Sensacion temperatura Interior
-
-int8_t Temp_AntDewPoint = 0; // Valor Anterior de Punto de rocio
-int8_t Temp_DewPoint = 0;	 // Valor de Punto de rocio
-
-int enteroDesdePc = 0; // Valor entero comando PC
+int8_t Temp_Evaporador = 0; // Variable temperatura Evaporador
+int8_t Temp_Ambiente = 0;	// Variable temperatura Ambiente
+int8_t Temp_Interior = 0;	// Variable temperatura Interior
+int8_t Temp_SInterior = 0;	// Variable  Sensacion temperatura Interior
+int8_t Temp_DewPoint = 0;	// Valor de Punto de rocio
+uint8_t Humi_Interior = 0;	// Variable humedad Interior
+uint8_t Illu_Ambiental = 0; // Valor Fotodiodo
+int enteroDesdePc = 0;		// Valor entero comando PC
 
 char receivedChars[Len_BufferInt];	// Vector Caracteres recivios
 char tempChars[Len_BufferInt];		// Vector tenporal para almacenar caracteres
@@ -79,8 +70,6 @@ uint8_t valorSoplador = 0;
 uint8_t valorAirMix = 0;
 uint8_t Est_AcAac = 255; // Estado para el control de encendido del compresor del aire acondicionado
 uint8_t Est_ADese = 255; // Estado para el desempañamiento automatico parabrisa delantera
-uint8_t Est_RFan1 = 0;	 // Estado control del relay de la refrigeracion del motor
-uint8_t estadoRel_Heater = 0;
 uint8_t estadoSingleAc = 0;
 
 unsigned long Tim_Current = 0; // Variable que almacena el tiempo desde que se inicio el sistema
@@ -90,32 +79,10 @@ unsigned long Tim_Current = 0; // Variable que almacena el tiempo desde que se i
 void lecturaComandosPc();
 void lecturaSensores();
 void Est_ActMens();
+void controlAutomatico();
+void Con_Comp();
 /*FUNCIONES PROTOTIPO*/
 
-void controlAutomatico()
-{
-	posicionLuz.update();
-	digitalWrite(Rel_Fan1, (estadoSingleAc || Est_RFan1));
-
-	if (posicionLuz.read())
-	{
-		if (!(Sta_Switch & BOOL1))
-		{
-			Sta_Switch |= BOOL1;
-			Sta_Control |= BOOL1;
-			Sta_Auto1 |= BOOL2;
-		}
-	}
-	else
-	{
-		if (Sta_Switch & BOOL1)
-		{
-			Sta_Switch &= ~BOOL1;
-			Sta_Control |= BOOL1;
-			Sta_Auto1 |= BOOL2;
-		}
-	}
-}
 void controlManual()
 {
 	/************************************************************************/
@@ -139,7 +106,7 @@ void controlManual()
 	<m,"valor"> ->	Posicion del servo de control de las regillas para la
 	mezcla de aire caliente y frio límite inferior de 15° y superior de 135°
 	<w,"valor"> ->	Control de la señal de parada( 1 = Encendido, 0 = Apagado)
-	<z, "valor">->Desempañador automatico parabrisa delantera (1 = Encendido, 0 = Apagado)
+	<z, "valor">->	Control de estado automatico
 	*/
 
 	switch (mensajeDesdePc[0])
@@ -161,36 +128,23 @@ void controlManual()
 	case 'b': // Control del Pwm_Blower del sistema del aire acondicionado
 		if (enteroDesdePc >= 1)
 		{
-			if (!estadoRel_Heater)
+			if (!(Sta_Switch & BOOL2))
 			{
-				estadoRel_Heater = 1;
+				Sta_Switch |= BOOL2;
 				digitalWrite(Rel_Heater, HIGH);
 			}
 		}
 		else
 		{
-			if (estadoRel_Heater)
+			if (Sta_Switch & BOOL2)
 			{
-				estadoRel_Heater = 0;
+				Sta_Switch &= ~BOOL2;
 				Est_AcAac = 0; // Desactiva el compresor del aire acondicionado
 				digitalWrite(Rel_Heater, LOW);
 			}
 		}
 		valorSoplador = map(enteroDesdePc, 0, 6, 0, 255);
 		analogWrite(Pwm_Blower, valorSoplador);
-		break;
-
-	case 'c': // Control del sistema de refigeracion del motor
-		if (enteroDesdePc == 1)
-		{
-			Est_RFan1 = 1;
-			break;
-		}
-		else
-		{
-			Est_RFan1 = 0;
-			break;
-		}
 		break;
 
 	case 'd': // Control del desempañamiento de la parabrisa trasera
@@ -204,7 +158,6 @@ void controlManual()
 			digitalWrite(Rel_Defroster, LOW);
 			break;
 		}
-		break;
 
 	case 'e': // Control del desempañador Parabrisas delantero
 		if (enteroDesdePc == 1)
@@ -226,7 +179,6 @@ void controlManual()
 			Est_ADese = 0;
 			break;
 		}
-		break;
 
 	case 'f': // Control de recirculacion del sistema del aire acondicionado
 		if (enteroDesdePc == 1)
@@ -241,7 +193,6 @@ void controlManual()
 			digitalWrite(Dig_AirFresh, HIGH);
 			break;
 		}
-		break;
 
 	case 'v': // Control de posicion de las ventanas del aire acondicionado
 		servoVentMode.write(enteroDesdePc);
@@ -255,15 +206,17 @@ void controlManual()
 		}
 		break;
 
-	case 'z':					// Desempañador Automatico parabrisas delantera
-		if (enteroDesdePc == 1) // Cuando este en 1 el desempañador automatico estara funcionando
+	case 'z': //Control de estado automatico
+		if (enteroDesdePc == 1)
 		{
-			Sta_Auto1 |= BOOL1; // Activamos el funcionamiento del desempañador automatico
+			Sta_Auto1 |= BOOL1; // Activamos el funcionamiento automatico
+			Est_ADese = 2;		// Inicia el desempañamiento automatico
 			break;
 		}
 		else
 		{
-			Sta_Auto1 &= ~BOOL1; // Desactivamos el funcionamiento del desempañador automatico
+			Sta_Auto1 &= ~BOOL1; // Desactivamos el funcionamiento automatico
+			Est_ADese = 0;		 // Desactiva el desempañamiento automatico
 			break;
 		}
 		break;
@@ -285,38 +238,173 @@ void controlManual()
 		break;
 	}
 }
-void Con_EstComp() // Funcion para el control del compresor del aire acondicionado
-{
-	static uint8_t
-		Est_Comp = 0;
 
+void Con_AutoCli() // Funcion para el control automatico del climatizador
+{
+	/* 
+	BOOl1 = Encendido o apagado segun el punto de rocio
+	*/
+	static uint8_t Est_CAuto; // Control Automatico del climatizador
+
+	switch (Est_ADese)
+	{
+	case 0: // Desactiva el desempañamiento automatico
+
+		Est_AcAac = 0;							// Desactiva el compresor del aire acondicionado
+		valorSoplador = map(0, 0, 6, 0, 255);	// Asigna la velocidad del Pwm_Blower
+		digitalWrite(Rel_Heater, LOW);			// Desactiva el relay del conjunto del aire acondicionado
+		analogWrite(Pwm_Blower, valorSoplador); // Asigna el pwm del Pwm_Blower
+		digitalWrite(Dig_Recirculation, HIGH);	// Activa la recirculacion
+		digitalWrite(Dig_AirFresh, LOW);		// Desactiva la entrada de aire desde afuera
+		Est_ADese = 255;						// Cambia al siguiente estado
+		break;
+
+	case 1: // Caso 1 para el inicio de desempañamiento manual
+
+		Est_AcAac = 1;							// Activa el compresor del aire acondicionado
+		digitalWrite(Rel_Heater, HIGH);			// Activa el relay del conjunto del aire acondicionado
+		valorSoplador = map(3, 0, 6, 0, 255);	// Asigna la velocidad del Pwm_Blower
+		analogWrite(Pwm_Blower, valorSoplador); // Asigna el pwm del Pwm_Blower
+		servoVentMode.write(0);					// Posiciona la regilla para la parabrisa delantera
+		digitalWrite(Dig_Recirculation, LOW);	// Desactiva la recirculacion
+		digitalWrite(Dig_AirFresh, HIGH);		// Activa la entrada de aire desde afuera
+		Est_ADese = 255;						// Cambia al siguiente estado
+		break;
+
+	case 2: // Inicia el desempañador automatico
+
+		Est_CAuto |= BOOL1; // Incia la variable para encendido de climatizador segun el punto de rocio
+		Est_ADese = 3;		// Cambia al siguiente estado
+		break;
+
+	case 3: // Contorl de encendido y apagado del sistema de aire acondicionado
+
+		if (Est_CAuto & BOOL1) // Control de encedido del climatizador segun el punto de rocio
+		{
+			if (Temp_Ambiente < Temp_DewPoint) // Si la temperatura ambiente es inferior al punto de rocio
+			{
+				Est_CAuto &= ~BOOL1;				  // Cambia el control del climatizador para el apagado del climatizador
+				Est_AcAac = 1;						  // Activa el compresor del aire acondicionado
+				digitalWrite(Rel_Heater, HIGH);		  // Activa el conjunto del climatizador
+				valorSoplador = map(3, 0, 6, 0, 255); // Asigna la velocidad de 3 al ventilador
+				analogWrite(Pwm_Blower, valorSoplador);
+				digitalWrite(Dig_Recirculation, LOW); // Desactiva la recirculacion
+				digitalWrite(Dig_AirFresh, HIGH);	  // Activa la entrada de aire desde afuera
+				servoVentMode.write(0);				  // Dirige todo el aire al parabrisa
+				//valorAirMix = map(3, 0, 6, 15, 135);	// Asigna entre la mescla de aire caliente y frio en 2
+				//servoAirMix.write(valorAirMix);
+				break;
+			}
+			break;
+		}
+		else
+		{
+			if (Temp_Ambiente > Temp_DewPoint + 1)
+			{
+				Est_CAuto |= BOOL1; // Cambia el control del climatizador para el encendido del climatizador
+				Est_AcAac = 0;		// Desactiva el compresor del aire acondicionado
+				valorSoplador = 0;
+				analogWrite(Pwm_Blower, valorSoplador);
+				digitalWrite(Rel_Heater, LOW);
+				//valorAirMix = map(0, 0, 6, 15, 135);	// Asigna entre la mescla de aire caliente y frio en 0
+				//servoAirMix.write(valorAirMix);
+				break;
+			}
+			break;
+		}
+		break;
+
+	default: // Caso por defecto no haga nada
+		break;
+	}
+	//////////////////////////////////////////////////////////////////////////
+}
+
+void setup()
+{
+	Serial.begin(Spe_Serial);
+
+	dht.begin();
+	Upd_FunParameter();
+
+	pinMode(Pwm_Blower, OUTPUT);
+	pinMode(Rel_Heater, OUTPUT);
+	pinMode(Rel_Defroster, OUTPUT);
+	pinMode(Dig_Recirculation, OUTPUT);
+	pinMode(Dig_AirFresh, OUTPUT);
+	pinMode(Rel_Cluch, OUTPUT);
+	pinMode(Rel_Fan1, OUTPUT);
+	pinMode(Dig_Ac1, OUTPUT);
+	pinMode(Rel_WarningLight, OUTPUT);
+
+	pinMode(Swi_Ill, INPUT);
+	pinMode(Swi_SingleAC, INPUT);
+	pinMode(Swi_DualAC, INPUT);
+	pinMode(Dig_Act, INPUT);
+
+	servoAirMix.attach(Ser_AirMix);
+	servoVentMode.attach(Ser_VentMode);
+	posicionLuz.attach(Swi_Ill);
+	posicionLuz.interval(5);
+	valorAirMix = map(0, 0, 6, 15, 135);
+	servoAirMix.write(valorAirMix);
+}
+
+void loop()
+{
+	Tim_Current = millis(); // Actualiza el tiempo para los temporizadores
+	lecturaSensores();
+	lecturaComandosPc();
+	controlAutomatico();
+	Est_ActMens();
+	Con_Comp();
+	Con_AutoCli();
+}
+
+void Con_Comp() // Funcion para el control del compresor del aire acondicionado
+{
 	/*
 	BOOL1 = Control de compresor segun la temperatura del evaporador
 	*/
-
-	static unsigned long
-		Tie_AaAC = 0; // Variable para almacenar el tiempo de la anterior activacion de aire acondicionado
+	static uint8_t Est_Comp = 0;
 
 	/*
 	Tiem_AaAC = Variable para almacenar el tiempo de la anterior activacion de aire acondicionado
 	*/
+	static unsigned long Tie_AaAC = 0;
 
 	switch (Est_AcAac)
 	{
 	case 0: // Desactivacion del sistema del compresor del aire acondicionado
 
-		Est_AcAac = 255;			  // Cambia al siguiente estado
-		digitalWrite(Dig_Ac1, LOW);	  // Desactiva la salida para la ECU aumente el ralentí
-		digitalWrite(Rel_Cluch, LOW); // Desactiva el embrague magnetico del compresor del aire acondicionado
-		Est_RFan1 = 0;				  // Desactiva el relay del ventilador de refigeracion del radiador
+		Est_AcAac = 255; // Cambia al siguiente estado
+		digitalWrite(Dig_Ac1, LOW);
+		digitalWrite(Rel_Cluch, LOW);
+		Sta_Switch &= ~BOOL3; // Desactiva el relay del ventilador de refigeracion del radiador
+		Sta_Switch &= ~BOOL4; // Desactiva el estado del compresor
+
+		if (Sta_Auto1 & BOOL1) // Comprueba si esta activado el control automatico del sistema
+		{
+			Sta_Auto1 |= BOOL2;	  // Activacion de envio de datos
+			Sta_Control |= BOOL2; // Envio de datos de estado FAN1
+			Sta_Control |= BOOL3; // Envio de datos de estado Compresor
+		}
 		break;
 
 	case 1: // Inicia la activacion del compresor del sistema del aire acondicionado
 
 		Est_AcAac = 2;				 // Cambia al siguiente estado
-		digitalWrite(Dig_Ac1, HIGH); // Activa la salida para la ECU aumente el ralentí
-		Tie_AaAC = Tim_Current;		 // Actualiza el temporizador
-		Est_RFan1 = 1;				 // Activa el relay del ventilador de refigeracion del radiador
+		digitalWrite(Dig_Ac1, HIGH); // Activa la salida de control de la ECU para aumentar el ralentí
+		Sta_Switch |= BOOL3;		 // Activa el relay del ventilador de refigeracion del radiador
+		Sta_Switch |= BOOL4;		 // Activa el estado del compresor
+
+		if (Sta_Auto1 & BOOL1) // Comprueba si esta activado el control automatico del sistema
+		{
+			Sta_Auto1 |= BOOL2;	  // Activacion de envio de datos
+			Sta_Control |= BOOL2; // Envio de datos de estado FAN1
+			Sta_Control |= BOOL3; // Envio de datos de estado Compresor
+		}
+		Tie_AaAC = Tim_Current; // Actualiza el temporizador
 		break;
 
 	case 2: // Espera de tiempo asignado a Tie_AaAC para la espera de encendido y comprobacion del compresor del aire acondicionado
@@ -330,7 +418,6 @@ void Con_EstComp() // Funcion para el control del compresor del aire acondiciona
 		{
 			break;
 		}
-		break;
 
 	case 3:
 		if (!digitalRead(Swi_DualAC)) // Lectura del interruptor doble del sistema del aire acondicionado (0 = Cerrado 1 = Abierto) Abierdo no debe encender el aire acondicionado
@@ -393,136 +480,35 @@ void Con_EstComp() // Funcion para el control del compresor del aire acondiciona
 		break;
 	}
 }
-void Con_AutoCli() // Funcion para el control automatico del climatizador
+void controlAutomatico()
 {
-	static uint8_t
-		Est_CAuto = 0; // Control de encendido climatizcion
-	/* 
-	BOOl1 = Encendido o apagado segun el punto de rocio calculado 
-	*/
-
-	switch (Est_ADese)
+	posicionLuz.update();
+	if (posicionLuz.read())
 	{
-	case 0: // Desactiva el desempañamiento automatico
-
-		Est_AcAac = 0;							// Desactiva el compresor del aire acondicionado
-		valorSoplador = map(0, 0, 6, 0, 255);	// Asigna la velocidad del Pwm_Blower
-		digitalWrite(Rel_Heater, LOW);			// Desactiva el relay del conjunto del aire acondicionado
-		analogWrite(Pwm_Blower, valorSoplador); // Asigna el pwm del Pwm_Blower
-		digitalWrite(Dig_Recirculation, HIGH);	// Activa la recirculacion
-		digitalWrite(Dig_AirFresh, LOW);		// Desactiva la entrada de aire desde afuera
-		Est_ADese = 255;						// Cambia al siguiente estado
-		break;
-
-	case 1: // Caso 1 para el inicio de desempañamiento manual
-
-		Est_AcAac = 1;							// Activa el compresor del aire acondicionado
-		valorSoplador = map(3, 0, 6, 0, 255);	// Asigna la velocidad del Pwm_Blower
-		digitalWrite(Rel_Heater, HIGH);			// Activa el relay del conjunto del aire acondicionado
-		analogWrite(Pwm_Blower, valorSoplador); // Asigna el pwm del Pwm_Blower
-		servoVentMode.write(0);					// Posiciona la regilla para la parabrisa delantera
-		digitalWrite(Dig_Recirculation, LOW);	// Desactiva la recirculacion
-		digitalWrite(Dig_AirFresh, HIGH);		// Activa la entrada de aire desde afuera
-		Est_ADese = 255;						// Cambia al siguiente estado
-		break;
-
-	case 2: // Inicia el desempañador automatico
-
-		Est_CAuto |= BOOL1; // Incia la variable para encendido de climatizador segun el punto de rocio
-
-		Est_ADese = 3; // Cambia al siguiente estado
-		break;
-
-	case 3: // Contorl de encendido y apagado del sistema de aire acondicionado
-
-		if (Est_CAuto & BOOL1) // Control de encedido del climatizador segun el punto de rocio
+		if (!(Sta_Switch & BOOL1))
 		{
-			if (Temp_Ambiente < Temp_DewPoint) // Si la temperatura ambiente es inferior al punto de rocio
-			{
-				Est_CAuto &= ~BOOL1;			// Cambia el control del climatizador para el apagado del climatizador
-				Est_AcAac = 1;					// Activa el compresor del aire acondicionado
-				digitalWrite(Rel_Heater, HIGH); // Activa el conjunto del climatizador
-				analogWrite(Pwm_Blower, valorSoplador);
-				valorSoplador = map(3, 0, 6, 0, 255); // Asigna la velocidad de 3 al ventilador
-				digitalWrite(Dig_Recirculation, LOW); // Desactiva la recirculacion
-				digitalWrite(Dig_AirFresh, HIGH);	  // Activa la entrada de aire desde afuera
-				servoVentMode.write(0);				  // Dirige todo el aire al parabrisa
-				//valorAirMix = map(3, 0, 6, 15, 135);	// Asigna entre la mescla de aire caliente y frio en 2
-				//servoAirMix.write(valorAirMix);
-				break;
-			}
-			break;
+			Sta_Switch |= BOOL1;
+			Sta_Control |= BOOL1;
+			Sta_Auto1 |= BOOL2;
 		}
-		else
-		{
-			if (Temp_Ambiente > Temp_DewPoint + 1)
-			{
-				Est_CAuto |= BOOL1; // Cambia el control del climatizador para el encendido del climatizador
-				Est_AcAac = 0;		// Desactiva el compresor del aire acondicionado
-				valorSoplador = 0;
-				analogWrite(Pwm_Blower, valorSoplador);
-				digitalWrite(Rel_Heater, LOW);
-				//valorAirMix = map(0, 0, 6, 15, 135);	// Asigna entre la mescla de aire caliente y frio en 0
-				//servoAirMix.write(valorAirMix);
-				break;
-			}
-			break;
-		}
-		break;
-
-	default: // Caso por defecto no haga nada
-		break;
 	}
-	//////////////////////////////////////////////////////////////////////////
+	else
+	{
+		if (Sta_Switch & BOOL1)
+		{
+			Sta_Switch &= ~BOOL1;
+			Sta_Control |= BOOL1;
+			Sta_Auto1 |= BOOL2;
+		}
+	}
+
+	estadoSingleAc = digitalRead(Swi_SingleAC); //Asignacion de estado preostato interruptor simple
+	digitalWrite(Rel_Fan1, (estadoSingleAc || (Sta_Switch & BOOL3)));
 }
-
-void setup()
-{
-	Serial.begin(Spe_Serial);
-
-	dht.begin();
-	Upd_FunParameter();
-	
-	pinMode(Pwm_Blower, OUTPUT);
-	pinMode(Rel_Heater, OUTPUT);
-	pinMode(Rel_Defroster, OUTPUT);
-	pinMode(Dig_Recirculation, OUTPUT);
-	pinMode(Dig_AirFresh, OUTPUT);
-	pinMode(Rel_Cluch, OUTPUT);
-	pinMode(Rel_Fan1, OUTPUT);
-	pinMode(Dig_Ac1, OUTPUT);
-	pinMode(Rel_WarningLight, OUTPUT);
-
-	pinMode(Swi_Ill, INPUT);
-	pinMode(Swi_SingleAC, INPUT);
-	pinMode(Swi_DualAC, INPUT);
-	pinMode(Dig_Act, INPUT);
-
-	servoAirMix.attach(Ser_AirMix);
-	servoVentMode.attach(Ser_VentMode);
-	posicionLuz.attach(Swi_Ill);
-	posicionLuz.interval(5);
-	valorAirMix = map(0, 0, 6, 15, 135);
-	servoAirMix.write(valorAirMix);
-
-	
-}
-
-void loop()
-{
-	Tim_Current = millis(); // Actualiza el tiempo para los temporizadores
-	lecturaSensores();
-	lecturaComandosPc();
-	controlAutomatico();
-	Est_ActMens();
-	Con_EstComp();
-	Con_AutoCli();
-}
-
 void lecturaComandosPc()
 {
 	static boolean recvInProgress = false;
-	static byte ndx = 0;
+	static uint8_t ndx = 0;
 	char rc;
 	if (Serial.available() > 0 && !(Sta_Auto1 & BOOL3))
 	{
@@ -566,17 +552,16 @@ void lecturaComandosPc()
 		Sta_Auto1 &= ~BOOL3;
 	}
 }
-
 void lecturaSensores()
 {
 	static unsigned long Tim_PreTermistores = 0; // Tiempo anterior lectura temperatura sensores analogos
 	static unsigned long Tim_PreDigital = 0;	 // Tiempo anterior lectura temperatura sensores digitales
 
-	estadoSingleAc = digitalRead(Swi_SingleAC); //Asignacion de estado preostato interruptor simple
-
 	if (Tim_Current - Tim_PreTermistores >= Int_LecTermistores)
 	{
-
+		static int8_t Temp_AntEvaporador = 0;											 // Variable temperatura Anterior Evaporador
+		static int8_t Temp_AntAmbiente = 0;												 // Variable temperatura Anterior Ambiente
+		static uint8_t Illu_AntAmbiental = 0;											 // Valor Fotodiodo
 		Temp_AntEvaporador = Fun_ConTemperature(analogRead(Ter_Evaporador), Ae, Be, Ce); // Convercion del voltage a temperatura del evaporador
 		Temp_AntAmbiente = Fun_ConTemperature(analogRead(Ter_Ambient), Aa, Ba, Ca);		 // Convercion del voltage a temperatura ambiente
 		Illu_AntAmbiental = map(analogRead(Fot_Solar), 0, 1023, 0, 100);				 // Convercion del voltage a iluminacion ambiental
@@ -602,8 +587,13 @@ void lecturaSensores()
 
 		Tim_PreTermistores = Tim_Current; // Actualiza el tiempo para la siguiente lectura
 	}
+
 	if (Tim_Current - Tim_PreDigital >= Int_LecDigital)
 	{
+		static int8_t Temp_AntInterior = 0;	 // Variable temperatura Anterior Interior
+		static uint8_t Humi_AntInterior = 0; // Variable humedad Anterior Interior
+		static int8_t Temp_AntSInterior = 0; // Variable  Sensacion Anterior temperatura Interior
+		static int8_t Temp_AntDewPoint = 0;	 // Valor Anterior de Punto de rocio
 		dht.readHumidity();
 		dht.readTemperature();
 		Temp_AntInterior = dht.temperature_C;
@@ -635,10 +625,10 @@ void lecturaSensores()
 			Sta_Auto1 |= BOOL2;
 			Sta_Sensors |= BOOL7;
 		}
+
 		Tim_PreDigital = Tim_Current;
 	}
 }
-
 void Est_ActMens() // Funcion para enviar los datos de los sensores
 {
 	/************************************************************************/
@@ -653,7 +643,10 @@ void Est_ActMens() // Funcion para enviar los datos de los sensores
 	-Ts = Temperatura sensacion Interior
 	-Pr = Punto Rocio
 	-I = Iluminacion Interior
+	-F1 = Relay Fan1
+	-Co = Compresor A/C
 	*/
+
 	String Aux_MMessage;
 	if (Sta_Auto1 & BOOL2)
 	{
@@ -715,6 +708,21 @@ void Est_ActMens() // Funcion para enviar los datos de los sensores
 			Aux_MMessage += (Sta_Switch & BOOL1);
 			Aux_MMessage += " ";
 		}
+		if (Sta_Control & BOOL2)
+		{
+			Sta_Control &= ~BOOL2;
+			Aux_MMessage += "F1:";
+			Aux_MMessage += (Sta_Switch & BOOL3);
+			Aux_MMessage += " ";
+		}
+		if (Sta_Control & BOOL3)
+		{
+			Sta_Control &= ~BOOL3;
+			Aux_MMessage += "Co:";
+			Aux_MMessage += (Sta_Switch & BOOL4);
+			Aux_MMessage += " ";
+		}
+
 		Aux_MMessage += End_Trama;
 		Serial.println(Aux_MMessage);
 		Aux_MMessage = " ";
