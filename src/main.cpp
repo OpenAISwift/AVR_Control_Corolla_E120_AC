@@ -37,6 +37,7 @@ BOOL2 = Heater Relay
 BOOL3 = Relay Fan1
 BOOL4 = Compresor A/C
 BOOL5 = Preostato interruptor simple (Proteccion Aire Acondicionado)
+BOOL6 = Preostato interruptor doble (Proteccion Aire Acondicionado)
 */
 uint8_t Sta_Switch;
 
@@ -45,6 +46,7 @@ BOOL1 = Interruptor de la Iluminacion
 BOOL2 = Estado relay Fan1
 BOOL3 = Estado Compresor A/C
 BOOL4 = Preostato interruptor simple (Proteccion Aire Acondicionado)
+BOOL5 = Preostato interruptor doble (Proteccion Aire Acondicionado)
 */
 uint8_t Sta_Control;
 
@@ -52,17 +54,18 @@ uint8_t Sta_Control;
 BOOL1 = Control de desempañamiento automatico
 BOOL2 = Control de envio de datos
 BOOL3 = Control de recepcion de datos
+BOOL4 = Control de recepcion de datos en progreso
 */
-uint8_t Sta_Auto1;
+uint8_t Sta_Auto;
 
-int8_t Temp_Evaporador = 0; // Variable temperatura Evaporador
-int8_t Temp_Ambiente = 0;	// Variable temperatura Ambiente
-int8_t Temp_Interior = 0;	// Variable temperatura Interior
-int8_t Temp_SInterior = 0;	// Variable  Sensacion temperatura Interior
-int8_t Temp_DewPoint = 0;	// Valor de Punto de rocio
-uint8_t Humi_Interior = 0;	// Variable humedad Interior
-uint8_t Illu_Ambiental = 0; // Valor Fotodiodo
-int enteroDesdePc = 0;		// Valor entero comando PC
+int8_t Temp_Evaporador = 0; // Temperatura Evaporador
+int8_t Temp_Ambiente = 0;	// Temperatura Ambiente
+int8_t Temp_Interior = 0;	// Temperatura Interior
+int8_t Temp_SInterior = 0;	// Sensacion Temperatura Interior
+int8_t Temp_DewPoint = 0;	// Punto de rocio
+uint8_t Humi_Interior = 0;	// Humedad Interior
+uint8_t Illu_Ambiental = 0; // Fotodiodo
+int enteroDesdePc = 0;		// Comando desde HOST
 
 char receivedChars[Len_BufferInt];	// Vector Caracteres recivios
 char tempChars[Len_BufferInt];		// Vector tenporal para almacenar caracteres
@@ -79,9 +82,9 @@ unsigned long Tim_Current = 0; // Variable que almacena el tiempo desde que se i
 /*FUNCIONES PROTOTIPO*/
 void lecturaComandosPc();
 void lecturaSensores();
-void Est_ActMens();
-void controlAutomatico();
-void Con_Comp();
+void Fun_ActMessage();
+void Con_Automatic();
+void Con_Compressor();
 /*FUNCIONES PROTOTIPO*/
 
 void controlManual()
@@ -168,7 +171,7 @@ void controlManual()
 		}
 		else
 		{
-			if (Sta_Auto1 & BOOL1) // Comprueba si esta activado el control automatico
+			if (Sta_Auto & BOOL1) // Comprueba si esta activado el control automatico
 			{
 				Est_ADese = 1; // Inicia el desempañamiento automatico
 				break;
@@ -209,14 +212,14 @@ void controlManual()
 	case 'z': //Control de estado automatico
 		if (enteroDesdePc == 1)
 		{
-			Sta_Auto1 |= BOOL1; // Activamos el funcionamiento automatico
-			Est_ADese = 1;		// Inicia el desempañamiento automatico (Estado de Transicion)
+			Sta_Auto |= BOOL1; // Activamos el funcionamiento automatico
+			Est_ADese = 1;	   // Inicia el desempañamiento automatico (Estado de Transicion)
 			break;
 		}
 		else
 		{
-			Sta_Auto1 &= ~BOOL1; // Desactivamos el funcionamiento automatico
-			Est_ADese = 0;		 // Desactiva el desempañamiento automatico
+			Sta_Auto &= ~BOOL1; // Desactivamos el funcionamiento automatico
+			Est_ADese = 0;		// Desactiva el desempañamiento automatico
 			break;
 		}
 		break;
@@ -364,25 +367,25 @@ void setup()
 void loop()
 {
 	Tim_Current = millis(); // Actualiza el tiempo para los temporizadores
+	Con_Automatic();
 	lecturaSensores();
 	lecturaComandosPc();
-	controlAutomatico();
-	Est_ActMens();
-	Con_Comp();
 	Con_AutoCli();
+	Con_Compressor();
+	Fun_ActMessage();
 }
 
-void Con_Comp() // Funcion para el control del compresor del aire acondicionado
+void Con_Compressor() // Funcion para el control del compresor del aire acondicionado
 {
 	/*
 	BOOL1 = Control de compresor segun la temperatura del evaporador
 	*/
-	static uint8_t Est_Comp = 0;
+	static uint8_t Sta_TempCompressor = 0;
 
 	/*
-	Tiem_AaAC = Variable para almacenar el tiempo de la anterior activacion de aire acondicionado
+	Tim_AntActivationAC = Temporizador activacion de aire acondicionado
 	*/
-	static unsigned long Tie_AaAC = 0;
+	static unsigned long Tim_AntActivationAC = 0;
 
 	switch (Est_AcAac)
 	{
@@ -394,9 +397,9 @@ void Con_Comp() // Funcion para el control del compresor del aire acondicionado
 		Sta_Switch &= ~BOOL3; // Desactiva el relay del ventilador de refigeracion del radiador
 		Sta_Switch &= ~BOOL4; // Desactiva el estado del compresor
 
-		if (Sta_Auto1 & BOOL1) // Comprueba si esta activado el control automatico del sistema
+		if (Sta_Auto & BOOL1) // Comprueba si esta activado el control automatico del sistema
 		{
-			Sta_Auto1 |= BOOL2;	  // Activacion de envio de datos
+			Sta_Auto |= BOOL2;	  // Activacion de envio de datos
 			Sta_Control |= BOOL2; // Envio de datos de estado FAN1
 			Sta_Control |= BOOL3; // Envio de datos de estado Compresor
 		}
@@ -409,20 +412,20 @@ void Con_Comp() // Funcion para el control del compresor del aire acondicionado
 		Sta_Switch |= BOOL3;		 // Activa el relay del ventilador de refigeracion del radiador
 		Sta_Switch |= BOOL4;		 // Activa el estado del compresor
 
-		if (Sta_Auto1 & BOOL1) // Comprueba si esta activado el control automatico del sistema
+		if (Sta_Auto & BOOL1) // Comprueba si esta activado el control automatico del sistema
 		{
-			Sta_Auto1 |= BOOL2;	  // Activacion de envio de datos
+			Sta_Auto |= BOOL2;	  // Activacion de envio de datos
 			Sta_Control |= BOOL2; // Envio de datos de estado FAN1
 			Sta_Control |= BOOL3; // Envio de datos de estado Compresor
 		}
-		Tie_AaAC = Tim_Current; // Actualiza el temporizador
+		Tim_AntActivationAC = Tim_Current; // Actualiza el temporizador
 		break;
 
-	case 2: // Espera de tiempo asignado a Tie_AaAC para la espera de encendido y comprobacion del compresor del aire acondicionado
-		if (Tim_Current - Tie_AaAC >= Int_ActE)
+	case 2: // Espera de tiempo asignado a Tim_AntActivationAC para la espera de encendido y comprobacion del compresor del aire acondicionado
+		if (Tim_Current - Tim_AntActivationAC >= Int_ActE)
 		{
-			Est_Comp |= BOOL1; // Reinicia el estado de encendido del del compresor por temperatura
-			Est_AcAac = 3;	   // Cambia al siguiente estado
+			Sta_TempCompressor |= BOOL1; // Reinicia el estado de encendido del del compresor por temperatura
+			Est_AcAac = 3;				 // Cambia al siguiente estado
 			break;
 		}
 		else
@@ -431,17 +434,17 @@ void Con_Comp() // Funcion para el control del compresor del aire acondicionado
 		}
 
 	case 3:
-		if (!digitalRead(Swi_DualAC)) // Lectura del interruptor doble del sistema del aire acondicionado (0 = Cerrado 1 = Abierto) Abierdo no debe encender el aire acondicionado
+		if (!(Sta_Switch & BOOL6))
 		{
-			if (!digitalRead(Swi_SingleAC)) // Lectura del interruptor simple del sistema del aire acondicionado (1 = Cerrado 0 = Abierto) Abierdo no debe encender el aire acondicionado
+			if (!(Sta_Switch & BOOL5))
 			{
 				if (digitalRead(Dig_Act))
 				{ // Lectura de la señal de ECU para desactivacion del compresor del aire acondicionado  (1 = Funcionamineto normal 0 = Apagar compresor)
-					if (Est_Comp & BOOL1)
+					if (Sta_TempCompressor & BOOL1)
 					{ // Control del encendido del compresor del aire acondicionado por umbral de temperatura del evaporador
 						if (Temp_Evaporador >= Val_UmAlt)
 						{								   // Control de encendido cuando la temperatura umbral es superior o igual a la definida
-							Est_Comp &= ~BOOL1;			   // Cambio de estado para la activacion de temperatura por debajo o igual al valor umbral
+							Sta_TempCompressor &= ~BOOL1;  // Cambio de estado para la activacion de temperatura por debajo o igual al valor umbral
 							digitalWrite(Rel_Cluch, HIGH); // Activa el embrague magnetico del compresor del aire acondicionado
 							break;
 						}
@@ -451,7 +454,7 @@ void Con_Comp() // Funcion para el control del compresor del aire acondicionado
 					{
 						if (Temp_Evaporador <= Val_UmBaj) // Control de apagado cuando la temperatura umbral es inferior o igual a la definida
 						{
-							Est_Comp |= BOOL1;			  // Cambio de estado para la activacion de temperatura superior o igual al valor umbral
+							Sta_TempCompressor |= BOOL1;  // Cambio de estado para la activacion de temperatura superior o igual al valor umbral
 							digitalWrite(Rel_Cluch, LOW); // Desactiva el embrague magnetico del compresor del aire acondicionado
 							break;
 						}
@@ -482,26 +485,30 @@ void Con_Comp() // Funcion para el control del compresor del aire acondicionado
 
 	case 4: // Cuando la ECU ordena apagar el compresor del aire acondicionado
 
-		digitalWrite(Rel_Cluch, LOW); // Desactiva el embrague magnetico del compresor del aire acondicionado
-		Tie_AaAC = Tim_Current;		  // Actualiza el temporizador
-		Est_AcAac = 2;				  // Cambia al siguiente estado
+		digitalWrite(Rel_Cluch, LOW);	   // Desactiva el embrague magnetico del compresor del aire acondicionado
+		Tim_AntActivationAC = Tim_Current; // Actualiza el temporizador
+		Est_AcAac = 2;					   // Cambia al siguiente estado
 		break;
 
 	default: // Caso por defecto no haga nada
 		break;
 	}
 }
-void controlAutomatico()
+void Con_Automatic()
 {
 	posicionLuz.update();
 
+	/*
+	Lectura del interruptor de pocicion de luces del tablero
+	(1 = Encendido 0 = Apagado) 
+	*/
 	if (posicionLuz.read())
 	{
 		if (!(Sta_Switch & BOOL1))
 		{
 			Sta_Switch |= BOOL1;
 			Sta_Control |= BOOL1;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
 		}
 	}
 	else
@@ -510,26 +517,55 @@ void controlAutomatico()
 		{
 			Sta_Switch &= ~BOOL1;
 			Sta_Control |= BOOL1;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
 		}
 	}
 
+	/*
+	Lectura del interruptor simple del sistema del aire acondicionado 
+	(1 = Cerrado 0 = Abierto) 
+	Abierdo no debe encender el aire acondicionado
+	*/
 	if (digitalRead(Swi_SingleAC))
 	{
 		if (!(Sta_Switch & BOOL5))
 		{
 			Sta_Switch |= BOOL5;
 			Sta_Control |= BOOL4;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
 		}
 	}
 	else
 	{
 		if (Sta_Switch & BOOL5)
 		{
-			Sta_Switch &=~ BOOL5;
+			Sta_Switch &= ~BOOL5;
 			Sta_Control |= BOOL4;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
+		}
+	}
+
+	/*
+	Lectura del interruptor doble del sistema del aire acondicionado 
+	(0 = Cerrado 1 = Abierto) 
+	Abierdo no debe encender el aire acondicionado
+	*/
+	if (digitalRead(Swi_DualAC))
+	{
+		if (!(Sta_Switch & BOOL6))
+		{
+			Sta_Switch |= BOOL6;
+			//Sta_Control |= BOOL5;
+			//Sta_Auto |= BOOL2;
+		}
+	}
+	else
+	{
+		if (Sta_Switch & BOOL6)
+		{
+			Sta_Switch &= ~BOOL6;
+			//Sta_Control |= BOOL5;
+			//Sta_Auto |= BOOL2;
 		}
 	}
 
@@ -537,13 +573,11 @@ void controlAutomatico()
 }
 void lecturaComandosPc()
 {
-	static boolean recvInProgress = false;
-	static uint8_t ndx = 0;
-	char rc;
-	if (Serial.available() > 0 && !(Sta_Auto1 & BOOL3))
+	if (Serial.available() > 0 && !(Sta_Auto & BOOL3))
 	{
-		rc = Serial.read();
-		if (recvInProgress)
+		static uint8_t ndx = 0;
+		char rc = Serial.read();
+		if (Sta_Auto & BOOL4)
 		{
 			if (rc != End_Trama)
 			{
@@ -557,17 +591,17 @@ void lecturaComandosPc()
 			else
 			{
 				receivedChars[ndx] = '\0'; // Termina la cadena
-				recvInProgress = false;
 				ndx = 0;
-				Sta_Auto1 |= BOOL3;
+				Sta_Auto |= BOOL3;
+				Sta_Auto &= ~BOOL4;
 			}
 		}
 		else if (rc == Ini_Trama)
 		{
-			recvInProgress = true;
+			Sta_Auto |= BOOL4;
 		}
 	}
-	if (Sta_Auto1 & BOOL3)
+	if (Sta_Auto & BOOL3)
 	{
 		strcpy(tempChars, receivedChars);
 		/* Divide los datos en sus partes*/
@@ -579,7 +613,7 @@ void lecturaComandosPc()
 		enteroDesdePc = atoi(strtokIndx);	 // Convierte a un numero entero
 		/////////////////////////////////////////////////////////////////////////////////////////////////
 		controlManual();
-		Sta_Auto1 &= ~BOOL3;
+		Sta_Auto &= ~BOOL3;
 	}
 }
 void lecturaSensores()
@@ -599,25 +633,24 @@ void lecturaSensores()
 		if (Temp_AntEvaporador != Temp_Evaporador)
 		{
 			Temp_Evaporador = Temp_AntEvaporador;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
 			Sta_Sensors |= BOOL1;
 		}
 		if (Temp_AntAmbiente != Temp_Ambiente)
 		{
 			Temp_Ambiente = Temp_AntAmbiente;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
 			Sta_Sensors |= BOOL2;
 		}
 		if (Illu_AntAmbiental != Illu_Ambiental)
 		{
 			Illu_Ambiental = Illu_AntAmbiental;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
 			Sta_Sensors |= BOOL3;
 		}
 
 		Tim_PreTermistores = Tim_Current; // Actualiza el tiempo para la siguiente lectura
 	}
-
 	if (Tim_Current - Tim_PreDigital >= Int_LecDigital)
 	{
 		static int8_t Temp_AntInterior = 0;	 // Variable temperatura Anterior Interior
@@ -634,32 +667,32 @@ void lecturaSensores()
 		if (Temp_AntInterior != Temp_Interior)
 		{
 			Temp_Interior = Temp_AntInterior;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
 			Sta_Sensors |= BOOL4;
 		}
 		if (Humi_AntInterior != Humi_Interior)
 		{
 			Humi_Interior = Humi_AntInterior;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
 			Sta_Sensors |= BOOL5;
 		}
 		if (Temp_AntSInterior != Temp_SInterior)
 		{
 			Temp_SInterior = Temp_AntSInterior;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
 			Sta_Sensors |= BOOL6;
 		}
 		if (Temp_AntDewPoint != Temp_DewPoint)
 		{
 			Temp_DewPoint = Temp_AntDewPoint;
-			Sta_Auto1 |= BOOL2;
+			Sta_Auto |= BOOL2;
 			Sta_Sensors |= BOOL7;
 		}
 
 		Tim_PreDigital = Tim_Current;
 	}
 }
-void Est_ActMens() // Funcion para enviar los datos de los sensores
+void Fun_ActMessage() // Funcion para enviar los datos de los sensores
 {
 	/************************************************************************/
 	/* IDENTIFICACION DE LOS SENSORES                                       */
@@ -678,7 +711,7 @@ void Est_ActMens() // Funcion para enviar los datos de los sensores
 	*/
 
 	String Aux_MMessage;
-	if (Sta_Auto1 & BOOL2)
+	if (Sta_Auto & BOOL2)
 	{
 		Aux_MMessage += Ini_Trama;
 		Aux_MMessage += " ";
@@ -791,6 +824,6 @@ void Est_ActMens() // Funcion para enviar los datos de los sensores
 		Aux_MMessage += End_Trama;
 		Serial.println(Aux_MMessage);
 		Aux_MMessage = " ";
-		Sta_Auto1 &= ~BOOL2;
+		Sta_Auto &= ~BOOL2;
 	}
 }
