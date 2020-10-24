@@ -414,6 +414,9 @@ void setup()
 	posicionLuz.interval(5);
 	valorAirMix = map(0, 0, 6, 15, 135);
 	servoAirMix.write(valorAirMix);
+
+	/*ACCIONES INICIALES DEL PROGRAMA*/
+	Sta_Switch |= BOOL4; // Activa Relay Fan1
 }
 
 void loop()
@@ -650,7 +653,7 @@ void Con_Automatic()
 			Sta_MessageSwitch |= BOOL1;
 		}
 	}
-	digitalWrite(Rel_Fan1, ((Sta_Compressor & BOOL1) || (Sta_Switch & BOOL3) || (Sta_Switch & BOOL4)));
+	digitalWrite(Rel_Fan1, ((Sta_Compressor & BOOL1) || (Sta_Switch & BOOL3) || (Sta_Switch & BOOL4) ));
 }
 void Fun_ReadSerial()
 {
