@@ -2,16 +2,6 @@
 #ifndef _MACROS_H
 #define _MACROS_H
 
-/*MACRO PARA VARIABLES BOLEANAS*/
-
-#define BOOL1 0x01
-#define BOOL2 0x02
-#define BOOL3 0x04
-#define BOOL4 0x08
-#define BOOL5 0x10
-#define BOOL6 0x20
-#define BOOL7 0x40
-#define BOOL8 0x80
 /*
 Para comprobar un estado:
 if ( "nombre de variable" & BOOLX ){
@@ -22,6 +12,13 @@ Establece el estado 1
 Limpia el estado BOOL1
 "nombre de variable" &=~ BOOLX;
 */
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define BOOL1 0x01
+#define BOOL2 0x02
+#define BOOL3 0x04
+#define BOOL4 0x08
+#define BOOL5 0x10
+#define BOOL6 0x20
+#define BOOL7 0x40
+#define BOOL8 0x80
 
 #endif
