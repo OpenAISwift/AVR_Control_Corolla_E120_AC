@@ -225,15 +225,16 @@ void controlManual()
 		{
 		case 1:
 			servoVentMode.write(0); // Posicion parabrisa
-			Serial.println("Parabrisa");
+			break;
+		case 2:
 			break;
 		case 3:
 			servoVentMode.write(90); // Posicion pies
-			Serial.println("Pies");
+			break;
+		case 4:
 			break;
 		case 5:
 			servoVentMode.write(180); // Posicion Frente
-			Serial.println("Frente");
 			break;
 
 		default: // Caso por defecto
