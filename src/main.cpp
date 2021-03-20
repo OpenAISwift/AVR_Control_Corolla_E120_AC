@@ -1,5 +1,6 @@
 /*INICIO DE LIBRERIAS*/
 #include <Arduino.h>
+#include "MeanFilterLib.h"
 #include "pins.h"
 #include "macros.h"
 #include "constant.h"
@@ -105,6 +106,8 @@ void lecturaSensores();
 void Fun_ActMessage();
 void Con_Automatic();
 void Con_Compressor();
+
+void analogReadings();
 /*FUNCIONES PROTOTIPO*/
 
 void controlManual()
@@ -448,6 +451,8 @@ void loop()
 	Con_AutoCli();
 	Con_Compressor();
 	Fun_ActMessage();
+
+	analogReadings();
 }
 
 void Con_Compressor() // Funcion para el control del compresor del aire acondicionado
@@ -728,38 +733,9 @@ void Fun_ReadSerial()
 }
 void lecturaSensores()
 {
-	static unsigned long Tim_PreTermistores = 0; // Tiempo anterior lectura temperatura sensores analogos
-	static unsigned long Tim_PreDigital = 0;	 // Tiempo anterior lectura temperatura sensores digitales
 
-	if (Tim_Current - Tim_PreTermistores >= Int_LecTermistores)
-	{
-		static int8_t Temp_AntEvaporador = 0;											 // Variable temperatura Anterior Evaporador
-		static int8_t Temp_AntAmbiente = 0;												 // Variable temperatura Anterior Ambiente
-		static uint8_t Illu_AntAmbiental = 0;											 // Valor Fotodiodo
-		Temp_AntEvaporador = Fun_ConTemperature(analogRead(Ter_Evaporador), Ae, Be, Ce); // Convercion del voltage a temperatura del evaporador
-		Temp_AntAmbiente = Fun_ConTemperature(analogRead(Ter_Ambient), Aa, Ba, Ca);		 // Convercion del voltage a temperatura ambiente
-		Illu_AntAmbiental = map(analogRead(Fot_Solar), 0, 1023, 0, 100);				 // Convercion del voltage a iluminacion ambiental
+	static unsigned long Tim_PreDigital = 0; // Tiempo anterior lectura temperatura sensores digitales
 
-		if (Temp_AntEvaporador != Temp_Evaporador)
-		{
-			Temp_Evaporador = Temp_AntEvaporador;
-			Sta_Auto |= BOOL2;
-			Sta_MessageSensors |= BOOL1;
-		}
-		if (Temp_AntAmbiente != Temp_Ambiente)
-		{
-			Temp_Ambiente = Temp_AntAmbiente;
-			Sta_Auto |= BOOL2;
-			Sta_MessageSensors |= BOOL2;
-		}
-		if (Illu_AntAmbiental != Illu_Ambiental)
-		{
-			Illu_Ambiental = Illu_AntAmbiental;
-			Sta_Auto |= BOOL2;
-			Sta_MessageSensors |= BOOL3;
-		}
-		Tim_PreTermistores = Tim_Current; // Actualiza el tiempo para la siguiente lectura
-	}
 	if (Tim_Current - Tim_PreDigital >= Int_LecDigital)
 	{
 		static int8_t Temp_AntInterior = 0;	 // Variable temperatura Anterior Interior
@@ -801,6 +777,51 @@ void lecturaSensores()
 		Tim_PreDigital = Tim_Current;
 	}
 }
+
+/*Funcion para la lectura de sensores analogicos*/
+void analogReadings()
+{
+	/*Variables locales para la lectura de sensores analogicos*/
+
+	static int8_t tempEvaporadorOld = 0;  // Temperatura Evaporador
+	static int8_t tempAmbientOld = 0;	  // Temperatura Ambiente
+	static uint8_t Illu_AntAmbiental = 0; // Valor Fotodiodo
+
+	static unsigned long Tim_PreTermistores = 0; // Tiempo anterior lectura temperatura sensores analogos
+	if (Tim_Current - Tim_PreTermistores >= Int_LecTermistores)
+	{
+		// Calculo de la lectura del sensor del evaporador
+		// Instanciar filtro media movil con ventana tamaño 3 para el sensor de temperatura del evaporador
+		static MeanFilter<float> tempEvaporadorFilter(3);
+		// Instanciar filtro media movil con ventana tamaño 3 para el sensor de temperatura ambiente
+		static MeanFilter<float> tempAmbientFilter(3);
+
+		Illu_AntAmbiental = map(analogRead(Fot_Solar), 0, 1023, 0, 100); // Convercion del voltage a iluminacion ambiental
+		tempEvaporadorOld = tempEvaporadorFilter.AddValue(Fun_ConTemperature(analogRead(Ter_Evaporador), Ae, Be, Ce));
+		tempAmbientOld = tempAmbientFilter.AddValue(Fun_ConTemperature(analogRead(Ter_Ambient), Aa, Ba, Ca));
+		if (tempEvaporadorOld != Temp_Evaporador)
+		{
+			Temp_Evaporador = tempEvaporadorOld;
+			Sta_Auto |= BOOL2;
+			Sta_MessageSensors |= BOOL1;
+		}
+		if (tempAmbientOld != Temp_Ambiente)
+		{
+			Temp_Ambiente = tempAmbientOld;
+			Sta_Auto |= BOOL2;
+			Sta_MessageSensors |= BOOL2;
+		}
+
+		if (Illu_AntAmbiental != Illu_Ambiental)
+		{
+			Illu_Ambiental = Illu_AntAmbiental;
+			Sta_Auto |= BOOL2;
+			Sta_MessageSensors |= BOOL3;
+		}
+		Tim_PreTermistores = Tim_Current; // Actualiza el tiempo para la siguiente lectura
+	}
+}
+
 void Fun_ActMessage() // Funcion para enviar los datos de los sensores
 {
 	/************************************************************************/
