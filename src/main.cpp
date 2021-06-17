@@ -792,9 +792,9 @@ void analogReadings()
 	{
 		// Calculo de la lectura del sensor del evaporador
 		// Instanciar filtro media movil con ventana tamaño 3 para el sensor de temperatura del evaporador
-		static MeanFilter<float> tempEvaporadorFilter(3);
+		static MeanFilter<float> tempEvaporadorFilter(4);
 		// Instanciar filtro media movil con ventana tamaño 3 para el sensor de temperatura ambiente
-		static MeanFilter<float> tempAmbientFilter(3);
+		static MeanFilter<float> tempAmbientFilter(4);
 
 		Illu_AntAmbiental = map(analogRead(Fot_Solar), 0, 1023, 0, 100); // Convercion del voltage a iluminacion ambiental
 		tempEvaporadorOld = tempEvaporadorFilter.AddValue(Fun_ConTemperature(analogRead(Ter_Evaporador), Ae, Be, Ce));
