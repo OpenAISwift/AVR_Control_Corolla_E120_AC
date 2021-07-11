@@ -444,7 +444,7 @@ void setup()
 
 void loop()
 {
-	Tim_Current = millis(); // Actualiza el tiempo para los temporizadores
+	Tim_Current = millis();
 	Con_Automatic();
 	lecturaSensores();
 	Fun_ReadSerial();
@@ -477,6 +477,7 @@ void Con_Compressor() // Funcion para el control del compresor del aire acondici
 			Sta_Auto |= BOOL2;
 			Sta_MessageSwitch |= BOOL2;
 			//Sta_MensajeCompressor |= BOOL2;
+			/**/
 		}
 	}
 	else
